@@ -9,7 +9,7 @@ import { useAuth, useQuery } from 'deepspace'
 import { ArrowRight, BookOpen } from 'lucide-react'
 import { Button, Input, useToast } from '@/components/ui'
 import { cn } from '@/lib/utils'
-import { Mascot, MascotSays } from '@/components/Mascot'
+import { Mascot } from '@/components/Mascot'
 import { callAction } from '@/lib/call-action'
 import { LIMITS, type Game } from '@/lib/game-logic'
 
@@ -60,24 +60,23 @@ export default function PlayPage() {
   }
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-10 px-5 py-10 md:grid-cols-[1.4fr_1fr] md:py-14">
+    <div className="mx-auto grid max-w-5xl gap-10 px-5 py-10 md:grid-cols-[1.45fr_1fr] md:py-14">
       <section>
-        <MascotSays mood="idle" size={52}>What are we playing tonight?</MascotSays>
-        <h1 className="font-display mt-5 text-4xl font-extrabold leading-[1.02] md:text-5xl">
-          Pick a topic. <span className="hl-mark swipe-ink">We’ll bring the receipts.</span>
-        </h1>
-        <p className="mt-3 max-w-lg text-muted-foreground">
-          Questions are written from real Wikipedia articles, and every answer is revealed with the exact
-          sentence that proves it.
+        <div className="flex items-end gap-3">
+          <Mascot mood="idle" size={70} />
+          <h1 className="title-pop text-5xl leading-[0.95] md:text-6xl">Pick a topic</h1>
+        </div>
+        <p className="mt-4 max-w-lg font-semibold text-muted-foreground">
+          We read the Wikipedia articles, write the questions and check every answer against the text.
         </p>
 
-        <form onSubmit={create} className="mt-8 space-y-5 rounded-3xl border-2 border-border bg-card p-5 shadow-[0_6px_0_0_rgba(6,12,28,0.45)] md:p-6">
+        <form onSubmit={create} className="sheet mt-7 space-y-5 p-5 md:p-6">
           <div>
-            <label htmlFor="topic" className="text-sm font-extrabold">Topic</label>
+            <label htmlFor="topic" className="font-display text-xl">Topic</label>
             <Input
               id="topic"
               data-testid="topic-input"
-              className="mt-1.5 h-13 text-lg md:text-lg"
+              className="mt-1.5 h-14 text-lg md:text-lg"
               placeholder="e.g. The history of the bicycle"
               maxLength={LIMITS.topicMaxLength}
               value={topic}
@@ -85,15 +84,16 @@ export default function PlayPage() {
               required
               minLength={2}
             />
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className="mt-3 flex flex-wrap gap-2">
               {TOPIC_IDEAS.map((t, i) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setTopic(t)}
                   className={cn(
-                    'rounded-full border-2 px-3 py-0.5 text-xs font-bold transition-colors',
-                    topic === t ? `bg-hl-${i % 4} text-ink border-transparent` : 'border-border text-muted-foreground hover:text-foreground',
+                    `pop bg-hl-${i % 4} rounded-full px-3 py-0.5 text-sm font-black text-ink`,
+                    topic !== t && 'opacity-70 hover:opacity-100',
+                    topic === t && 'rotate-[-3deg]',
                   )}
                 >
                   {t}
@@ -107,50 +107,50 @@ export default function PlayPage() {
             <Segmented label="Seconds each" options={LIMITS.secondsOptions} value={seconds} onChange={setSeconds} />
           </div>
 
-          <Button type="submit" size="lg" className="w-full" disabled={creating || topic.trim().length < 2} data-testid="create-game">
+          <Button type="submit" size="lg" className="font-display h-14 w-full rounded-2xl bg-hl-1 text-2xl font-normal" disabled={creating || topic.trim().length < 2} data-testid="create-game">
             {creating ? 'Starting…' : 'Create game'}
-            {!creating && <ArrowRight aria-hidden />}
+            {!creating && <ArrowRight className="size-6" strokeWidth={3} aria-hidden />}
           </Button>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs font-semibold opacity-60">
             Writing and fact-checking the questions takes about half a minute. Your friends can join while it runs.
           </p>
         </form>
       </section>
 
-      <aside className="space-y-8">
-        <form onSubmit={join} className="relative rounded-3xl border-2 border-dashed border-input p-5 md:mt-16">
-          <Mascot mood="wow" size={48} className="absolute -right-3 -top-6 rotate-12" />
-          <p className="font-display text-2xl font-extrabold">Got a code?</p>
-          <p className="text-sm text-muted-foreground">Join a friend’s game.</p>
+      <aside className="space-y-8 md:pt-20">
+        <form onSubmit={join} className="sheet relative rotate-[1.5deg] bg-hl-3 p-5">
+          <Mascot mood="wow" size={56} className="absolute -right-4 -top-8 rotate-12" />
+          <p className="font-display text-3xl leading-none">Got a code?</p>
+          <p className="mt-1 text-sm font-bold opacity-70">Join a friend’s game.</p>
           <label htmlFor="code" className="sr-only">Join code</label>
           <Input
             id="code"
             data-testid="join-code"
-            className="font-code mt-3 h-16 text-center text-3xl uppercase tracking-[0.4em] md:text-3xl"
+            className="font-code mt-3 h-16 text-center text-3xl uppercase tracking-[0.35em] md:text-3xl"
             placeholder="ABCDE"
             maxLength={5}
             autoComplete="off"
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
           />
-          <Button type="submit" variant="secondary" size="lg" className="mt-4 w-full" disabled={joining || code.trim().length !== 5}>
+          <Button type="submit" size="lg" className="font-display mt-4 h-12 w-full text-xl font-normal" disabled={joining || code.trim().length !== 5}>
             {joining ? 'Joining…' : 'Join'}
           </Button>
         </form>
 
         {myGames.length > 0 && (
           <div>
-            <h2 className="font-display text-lg font-bold">Your recent games</h2>
-            <ul className="mt-2 divide-y-2 divide-border overflow-hidden rounded-2xl border-2 border-border bg-card">
+            <h2 className="font-display text-2xl">Your recent games</h2>
+            <ul className="sheet mt-2 divide-y-2 divide-[var(--ink)]/15 overflow-hidden">
               {myGames.map((g) => (
                 <li key={g.recordId}>
                   <button
                     onClick={() => navigate(`/g/${g.data.code}`)}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted"
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left font-bold hover:bg-[var(--hl-yellow)]/40"
                   >
-                    <BookOpen className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                    <BookOpen className="h-4 w-4 shrink-0 opacity-50" aria-hidden />
                     <span className="min-w-0 flex-1 truncate">{g.data.topic}</span>
-                    <span className="font-code text-xs text-muted-foreground">{g.data.code}</span>
+                    <span className="font-code text-xs opacity-60">{g.data.code}</span>
                     <StatusPill status={g.data.status} />
                   </button>
                 </li>
@@ -168,8 +168,8 @@ function Segmented<T extends number>({
 }: { label: string; options: readonly T[]; value: number; onChange: (v: T) => void }) {
   return (
     <fieldset>
-      <legend className="text-sm font-extrabold">{label}</legend>
-      <div className="mt-1.5 flex gap-1 rounded-xl border-2 border-input bg-background/60 p-1">
+      <legend className="font-display text-lg">{label}</legend>
+      <div className="mt-1 flex gap-1 rounded-xl border-[3px] border-[var(--ink)] bg-white p-1">
         {options.map((o) => (
           <button
             key={o}
@@ -178,7 +178,7 @@ function Segmented<T extends number>({
             onClick={() => onChange(o)}
             className={cn(
               'font-code flex-1 rounded-lg py-1.5 text-sm transition-colors',
-              value === o ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+              value === o ? 'bg-ink text-paper' : 'text-ink/60 hover:bg-[var(--hl-yellow)]/50 hover:text-ink',
             )}
           >
             {o}
@@ -196,7 +196,7 @@ export function StatusPill({ status }: { status: Game['status'] }) {
   return (
     <span className={cn(
       'font-code rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider',
-      status === 'question' || status === 'reveal' ? 'bg-hl-2 text-ink' : status === 'failed' ? 'bg-hl-1 text-ink' : 'bg-muted text-muted-foreground',
+      status === 'question' || status === 'reveal' ? 'bg-hl-2 text-ink' : status === 'failed' ? 'bg-hl-1 text-ink' : 'bg-ink/10 text-ink',
     )}>
       {label[status]}
     </span>

@@ -110,8 +110,8 @@ export function MascotSays({
   return (
     <div className={cn('flex items-center gap-3', className)}>
       <Mascot mood={mood} size={size} />
-      <div className="relative rounded-2xl bg-paper px-4 py-2.5 text-ink font-bold leading-snug shadow-[0_4px_0_0_rgba(6,12,28,0.45)]">
-        <span className="absolute -left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 bg-paper" aria-hidden />
+      <div className="relative rounded-2xl border-[3px] border-[var(--ink)] bg-paper px-4 py-2 font-black leading-snug text-ink shadow-[4px_4px_0_0_var(--ink)]">
+        <span className="absolute -left-[9px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rotate-45 border-b-[3px] border-l-[3px] border-[var(--ink)] bg-paper" aria-hidden />
         <span className="relative">{children}</span>
       </div>
     </div>

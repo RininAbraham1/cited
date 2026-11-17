@@ -1,91 +1,152 @@
 /*
- * Cited theme — "highlighter": game night on deep navy ink, lit up by four
- * highlighter colours (one per answer: A yellow, B pink, C green, D blue).
- * Chunky rounded shapes, pressable buttons with a hard drop shadow, and a
- * cream "index card" for the source quote so the receipt reads like paper.
+ * Cited theme — "zine": a game-show stage in electric ultramarine with a
+ * halftone dot screen, cream sticker-cards with thick ink outlines and hard
+ * offset shadows, four highlighter answer colours (A yellow, B pink, C green,
+ * D cyan), and the source quote printed on a torn-edge receipt.
  */
-[data-theme="highlighter"] {
+[data-theme="zine"] {
   color-scheme: dark;
-  --color-background: #14213d;
-  --color-foreground: #fdf8ec;
-  --color-card: #1d2e52;
-  --color-card-foreground: #fdf8ec;
-  --color-popover: #1d2e52;
-  --color-popover-foreground: #fdf8ec;
-  --color-primary: #ffe94d;
-  --color-primary-foreground: #14213d;
-  --color-secondary: #2a3f6b;
-  --color-secondary-foreground: #fdf8ec;
-  --color-muted: #24375f;
-  --color-muted-foreground: #a9b6d3;
-  --color-accent: #2a3f6b;
-  --color-accent-foreground: #fdf8ec;
-  --color-destructive: #ff6b6b;
-  --color-destructive-foreground: #14213d;
-  --color-border: #31497a;
-  --color-input: #3a5487;
-  --color-ring: #ffe94d;
-  --radius: 0.875rem;
-  --shadow-card: 0 4px 0 0 rgba(6, 12, 28, 0.45);
-  --shadow-card-hover: 0 6px 0 0 rgba(6, 12, 28, 0.45);
-  --color-shell: #101b33;
-  --color-shell-panel: #1d2e52;
+  --color-background: #3a26d9;
+  --color-foreground: #fff8e7;
+  --color-card: #2c1bb3;
+  --color-card-foreground: #fff8e7;
+  --color-popover: #fff8e7;
+  --color-popover-foreground: #17123a;
+  --color-primary: #ffe14d;
+  --color-primary-foreground: #17123a;
+  --color-secondary: #fff8e7;
+  --color-secondary-foreground: #17123a;
+  --color-muted: #2c1bb3;
+  --color-muted-foreground: #cdc6ff;
+  --color-accent: #4a37ea;
+  --color-accent-foreground: #fff8e7;
+  --color-destructive: #ff5c7a;
+  --color-destructive-foreground: #17123a;
+  --color-border: #17123a;
+  --color-input: #17123a;
+  --color-ring: #ffe14d;
+  --radius: 1rem;
+  --shadow-card: 5px 5px 0 0 #17123a;
+  --shadow-card-hover: 7px 7px 0 0 #17123a;
+  --color-shell: #2c1bb3;
+  --color-shell-panel: #3a26d9;
 
-  /* Highlighters: the answer colours, and the paper the receipt sits on. */
-  --hl-yellow: #ffe94d;
+  --hl-yellow: #ffe14d;
   --hl-pink: #ff7ab6;
-  --hl-green: #5be39b;
-  --hl-blue: #6ec8ff;
-  --ink: #14213d;
-  --paper: #fdf8ec;
+  --hl-green: #4fe39a;
+  --hl-blue: #5fd0ff;
+  --ink: #17123a;
+  --paper: #fff8e7;
+  --stage-deep: #2c1bb3;
 }
 
-.font-display { font-family: 'Baloo 2', 'Nunito', ui-rounded, system-ui, sans-serif; letter-spacing: -0.01em; }
-/* Numbers, codes and labels: the same rounded family, heavy, with even digits. */
-.font-code { font-family: 'Nunito', ui-rounded, system-ui, sans-serif; font-weight: 800; font-variant-numeric: tabular-nums; }
+.font-display { font-family: 'Lilita One', 'Nunito', ui-rounded, system-ui, sans-serif; font-weight: 400; letter-spacing: 0.005em; }
+.font-code { font-family: 'Nunito', ui-rounded, system-ui, sans-serif; font-weight: 900; font-variant-numeric: tabular-nums; }
+.font-receipt { font-family: 'Space Mono', ui-monospace, monospace; }
 
-/* Pressable "game piece" surface: hard shadow that squashes when pressed. */
-.chunky { box-shadow: 0 5px 0 0 rgba(6, 12, 28, 0.55); transition: transform 120ms ease, box-shadow 120ms ease, opacity 200ms ease, filter 120ms ease; }
-.chunky:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 7px 0 0 rgba(6, 12, 28, 0.55); }
-.chunky:not(:disabled):active { transform: translateY(3px); box-shadow: 0 2px 0 0 rgba(6, 12, 28, 0.55); }
+/* The stage: ultramarine with a halftone dot screen. */
+.stage {
+  background-color: var(--color-background);
+  background-image: radial-gradient(rgba(255, 248, 231, 0.10) 1.3px, transparent 1.7px);
+  background-size: 16px 16px;
+}
+
+/* Paper sticker-card. */
+.sheet {
+  background: var(--paper);
+  color: var(--ink);
+  border: 3px solid var(--ink);
+  border-radius: 1.5rem;
+  box-shadow: 6px 6px 0 0 var(--ink);
+}
+
+/* Pressable game piece: ink outline + hard shadow that squashes when pressed. */
+.pop {
+  border: 3px solid var(--ink);
+  box-shadow: 4px 4px 0 0 var(--ink);
+  transition: transform 110ms ease, box-shadow 110ms ease, opacity 200ms ease, filter 120ms ease;
+}
+.pop:not(:disabled):hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 0 var(--ink); }
+.pop:not(:disabled):active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 0 var(--ink); }
+
+/* Big outlined title type that pops off the stage. */
+.title-pop {
+  font-family: 'Lilita One', 'Nunito', system-ui, sans-serif;
+  color: var(--paper);
+  -webkit-text-stroke: 0.14em var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0.07em 0.08em 0 var(--ink);
+  letter-spacing: 0.01em;
+}
+
+/* Tilted sticker label. */
+/* In the components layer so utilities (grid, rounded-full, flex…) override it. */
+@layer components {
+  .sticker {
+    display: inline-block;
+    border: 3px solid var(--ink);
+    border-radius: 0.9rem;
+    box-shadow: 4px 4px 0 0 var(--ink);
+    color: var(--ink);
+  }
+}
 
 .bg-hl-0 { background-color: var(--hl-yellow); }
 .bg-hl-1 { background-color: var(--hl-pink); }
 .bg-hl-2 { background-color: var(--hl-green); }
 .bg-hl-3 { background-color: var(--hl-blue); }
-.text-hl-0 { color: var(--hl-yellow); }
-.text-hl-1 { color: var(--hl-pink); }
-.text-hl-2 { color: var(--hl-green); }
-.text-hl-3 { color: var(--hl-blue); }
 .text-ink { color: var(--ink); }
 .bg-ink { background-color: var(--ink); }
 .bg-paper { background-color: var(--paper); }
+.text-paper { color: var(--paper); }
 
-/* A highlighter swipe across text. `.swipe` animates it in left→right. */
+/* Highlighter swipe across text (on paper). */
 .hl-mark {
   background-image: linear-gradient(var(--hl, var(--hl-yellow)), var(--hl, var(--hl-yellow)));
   background-repeat: no-repeat;
   background-size: 100% 80%;
   background-position: 0 65%;
-  border-radius: 0.2em;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
   padding: 0 0.15em;
   color: var(--ink);
 }
-.swipe { background-size: 0% 80%; animation: swipe 700ms 150ms cubic-bezier(.6,.05,.3,1) forwards; }
-/* On the dark page, text starts in the page colour and turns to ink as the pen passes. */
-.swipe-ink { background-size: 0% 80%; color: var(--paper); animation: swipe 700ms 150ms cubic-bezier(.6,.05,.3,1) forwards, inkify 350ms 400ms forwards; }
+.swipe { background-size: 0% 80%; animation: swipe 700ms 200ms cubic-bezier(.6,.05,.3,1) forwards; }
 @keyframes swipe { to { background-size: 100% 80%; } }
-@keyframes inkify { to { color: var(--ink); } }
 
-/* Points badge pops in like a sticker being slapped on. */
-@keyframes sticker {
-  0% { transform: scale(1.8) rotate(-12deg); opacity: 0; }
-  60% { transform: scale(0.92) rotate(-4deg); opacity: 1; }
-  100% { transform: scale(1) rotate(-5deg); opacity: 1; }
+/* Torn-edge receipt: zigzag top and bottom. Shadow via filter on a wrapper. */
+.receipt {
+  background: var(--paper);
+  color: var(--ink);
+  --z: 9px;
+  -webkit-mask:
+    conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / calc(2 * var(--z)) 51% repeat-x,
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / calc(2 * var(--z)) 51% repeat-x;
+  mask:
+    conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / calc(2 * var(--z)) 51% repeat-x,
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / calc(2 * var(--z)) 51% repeat-x;
+  padding-block: calc(var(--z) + 1.1rem);
 }
-.stamp { animation: sticker 420ms cubic-bezier(.2,.9,.3,1.25) both; }
+.receipt-shadow { filter: drop-shadow(6px 6px 0 var(--ink)); }
+.dotted-leader { flex: 1; min-width: 1rem; border-bottom: 2px dotted currentColor; opacity: 0.35; margin: 0 0.5rem 0.35em; }
+
+/* Scrolling marquee band. */
+.marquee { overflow: hidden; white-space: nowrap; }
+.marquee > div { display: inline-flex; animation: marquee 30s linear infinite; }
+@keyframes marquee { to { transform: translateX(-50%); } }
+
+/* Stamps slap on. */
+@keyframes slap {
+  0% { transform: scale(2.2) rotate(-14deg); opacity: 0; }
+  55% { transform: scale(0.9) rotate(-5deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-6deg); opacity: 1; }
+}
+.stamp { animation: slap 450ms cubic-bezier(.2,.9,.3,1.25) both; }
+
+@keyframes wiggle { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+.wiggle { animation: wiggle 0.5s ease-in-out infinite; }
+@keyframes floaty { 0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); } 50% { transform: translateY(-8px) rotate(var(--r, 0deg)); } }
+.floaty { animation: floaty 3.2s ease-in-out infinite; }
 
 /* ---------- Mascot: the footnote asterisk (src/components/Mascot.tsx) ---------- */
 .mascot { overflow: visible; }
@@ -106,11 +167,8 @@
 @keyframes droop { to { transform: translateY(5px) rotate(-8deg) scale(1, 0.94); } }
 @keyframes blink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.1); } }
 
-@keyframes wiggle { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
-.wiggle { animation: wiggle 2.4s ease-in-out infinite; }
-
 @media (prefers-reduced-motion: reduce) {
-  .stamp, .swipe, .swipe-ink, .wiggle, .mascot * { animation: none !important; }
-  .swipe, .swipe-ink { background-size: 100% 80%; color: var(--ink); }
-  .stamp { transform: rotate(-5deg); }
+  .stamp, .swipe, .wiggle, .floaty, .marquee > div, .mascot * { animation: none !important; }
+  .swipe { background-size: 100% 80%; }
+  .stamp { transform: rotate(-6deg); }
 }

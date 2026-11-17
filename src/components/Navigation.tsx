@@ -60,7 +60,7 @@ export default function Navigation() {
         aria-current={active ? 'page' : undefined}
         className={cn(
           'rounded-full px-3 py-1.5 text-sm font-bold',
-          active ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground',
+          active ? 'bg-paper text-ink' : 'text-muted-foreground hover:text-foreground',
         )}
       >
         {item.label}
@@ -70,11 +70,11 @@ export default function Navigation() {
 
   return (
     <>
-      <nav data-testid="app-navigation" className="border-b border-border bg-background">
+      <nav data-testid="app-navigation" className="border-b-[3px] border-[var(--ink)] bg-[var(--stage-deep)]">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4">
           <Link to="/play" className="flex items-center gap-1.5 text-foreground">
-            <Mascot size={30} />
-            <span className="font-display text-2xl font-extrabold leading-none">{APP_NAME}</span>
+            <Mascot size={34} />
+            <span className="title-pop text-[1.7rem] leading-none">{APP_NAME}</span>
           </Link>
 
           <div className="hidden items-center md:flex">{visibleNav.map(navLink)}</div>
@@ -138,7 +138,7 @@ export default function Navigation() {
             <button
               data-testid="nav-sign-in-button"
               onClick={() => setShowAuthModal(true)}
-              className="chunky rounded-xl bg-primary px-4 py-1.5 text-sm font-extrabold text-primary-foreground"
+              className="pop rounded-xl bg-primary px-4 py-1.5 text-sm font-black text-primary-foreground"
             >
               Sign in
             </button>

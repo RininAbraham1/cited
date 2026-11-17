@@ -17,7 +17,7 @@
  */
 
 export const THEMES = [
-  { id: 'highlighter', label: 'Highlighter', description: 'Navy ink lit by four highlighter colours, one per answer.' },
+  { id: 'zine', label: 'Zine', description: 'Ultramarine game-show stage, ink-outlined paper stickers, highlighter answers.' },
   { id: 'slate', label: 'Slate', description: 'Scaffold dark default (unused).' },
 ] as const
 
@@ -25,9 +25,9 @@ export type ThemeId = (typeof THEMES)[number]['id']
 
 /** Read the currently active theme id from <html data-theme>. */
 export function getActiveTheme(): ThemeId {
-  if (typeof document === 'undefined') return 'highlighter'
+  if (typeof document === 'undefined') return 'zine'
   const id = document.documentElement.getAttribute('data-theme') as ThemeId | null
-  return id ?? 'highlighter'
+  return id ?? 'zine'
 }
 
 /** Look up a theme entry by id, or fall back to the first theme. */
