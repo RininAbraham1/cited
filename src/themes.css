@@ -1,43 +1,116 @@
 /*
- * Cited theme — "archive": warm index-card paper, ink-black type and one
- * vermilion accent (the colour of a reference-desk stamp). Light only: the
- * game is often projected onto a shared screen, where dark themes wash out.
+ * Cited theme — "highlighter": game night on deep navy ink, lit up by four
+ * highlighter colours (one per answer: A yellow, B pink, C green, D blue).
+ * Chunky rounded shapes, pressable buttons with a hard drop shadow, and a
+ * cream "index card" for the source quote so the receipt reads like paper.
  */
-[data-theme="archive"] {
-  color-scheme: light;
-  --color-background: #f4efe4;
-  --color-foreground: #1c1a17;
-  --color-card: #fbf8f1;
-  --color-card-foreground: #1c1a17;
-  --color-popover: #fbf8f1;
-  --color-popover-foreground: #1c1a17;
-  --color-primary: #c8361d;
-  --color-primary-foreground: #fffaf2;
-  --color-secondary: #e9e1d0;
-  --color-secondary-foreground: #1c1a17;
-  --color-muted: #ebe4d5;
-  --color-muted-foreground: #6b6357;
-  --color-accent: #e3d9c4;
-  --color-accent-foreground: #1c1a17;
-  --color-destructive: #b42318;
-  --color-destructive-foreground: #ffffff;
-  --color-border: #d8cdb8;
-  --color-input: #d2c6ae;
-  --color-ring: #c8361d;
-  --radius: 0.375rem;
-  --shadow-card: 0 1px 0 0 rgba(28, 26, 23, 0.06);
-  --shadow-card-hover: 0 2px 0 0 rgba(28, 26, 23, 0.1);
-  --color-shell: #efe8da;
-  --color-shell-panel: #fbf8f1;
+[data-theme="highlighter"] {
+  color-scheme: dark;
+  --color-background: #14213d;
+  --color-foreground: #fdf8ec;
+  --color-card: #1d2e52;
+  --color-card-foreground: #fdf8ec;
+  --color-popover: #1d2e52;
+  --color-popover-foreground: #fdf8ec;
+  --color-primary: #ffe94d;
+  --color-primary-foreground: #14213d;
+  --color-secondary: #2a3f6b;
+  --color-secondary-foreground: #fdf8ec;
+  --color-muted: #24375f;
+  --color-muted-foreground: #a9b6d3;
+  --color-accent: #2a3f6b;
+  --color-accent-foreground: #fdf8ec;
+  --color-destructive: #ff6b6b;
+  --color-destructive-foreground: #14213d;
+  --color-border: #31497a;
+  --color-input: #3a5487;
+  --color-ring: #ffe94d;
+  --radius: 0.875rem;
+  --shadow-card: 0 4px 0 0 rgba(6, 12, 28, 0.45);
+  --shadow-card-hover: 0 6px 0 0 rgba(6, 12, 28, 0.45);
+  --color-shell: #101b33;
+  --color-shell-panel: #1d2e52;
+
+  /* Highlighters: the answer colours, and the paper the receipt sits on. */
+  --hl-yellow: #ffe94d;
+  --hl-pink: #ff7ab6;
+  --hl-green: #5be39b;
+  --hl-blue: #6ec8ff;
+  --ink: #14213d;
+  --paper: #fdf8ec;
 }
 
-.font-display { font-family: 'Fraunces', ui-serif, Georgia, serif; font-optical-sizing: auto; }
-.font-code { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+.font-display { font-family: 'Baloo 2', 'Nunito', ui-rounded, system-ui, sans-serif; letter-spacing: -0.01em; }
+/* Numbers, codes and labels: the same rounded family, heavy, with even digits. */
+.font-code { font-family: 'Nunito', ui-rounded, system-ui, sans-serif; font-weight: 800; font-variant-numeric: tabular-nums; }
 
-@keyframes stamp-in {
-  0% { transform: scale(1.6) rotate(-8deg); opacity: 0; }
-  60% { transform: scale(0.95) rotate(-3deg); opacity: 1; }
-  100% { transform: scale(1) rotate(-3deg); opacity: 1; }
+/* Pressable "game piece" surface: hard shadow that squashes when pressed. */
+.chunky { box-shadow: 0 5px 0 0 rgba(6, 12, 28, 0.55); transition: transform 120ms ease, box-shadow 120ms ease, opacity 200ms ease, filter 120ms ease; }
+.chunky:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 7px 0 0 rgba(6, 12, 28, 0.55); }
+.chunky:not(:disabled):active { transform: translateY(3px); box-shadow: 0 2px 0 0 rgba(6, 12, 28, 0.55); }
+
+.bg-hl-0 { background-color: var(--hl-yellow); }
+.bg-hl-1 { background-color: var(--hl-pink); }
+.bg-hl-2 { background-color: var(--hl-green); }
+.bg-hl-3 { background-color: var(--hl-blue); }
+.text-hl-0 { color: var(--hl-yellow); }
+.text-hl-1 { color: var(--hl-pink); }
+.text-hl-2 { color: var(--hl-green); }
+.text-hl-3 { color: var(--hl-blue); }
+.text-ink { color: var(--ink); }
+.bg-ink { background-color: var(--ink); }
+.bg-paper { background-color: var(--paper); }
+
+/* A highlighter swipe across text. `.swipe` animates it in left→right. */
+.hl-mark {
+  background-image: linear-gradient(var(--hl, var(--hl-yellow)), var(--hl, var(--hl-yellow)));
+  background-repeat: no-repeat;
+  background-size: 100% 80%;
+  background-position: 0 65%;
+  border-radius: 0.2em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  padding: 0 0.15em;
+  color: var(--ink);
 }
-.stamp { animation: stamp-in 380ms cubic-bezier(.2,.9,.3,1.2) both; }
-@media (prefers-reduced-motion: reduce) { .stamp { animation: none; transform: rotate(-3deg); } }
+.swipe { background-size: 0% 80%; animation: swipe 700ms 150ms cubic-bezier(.6,.05,.3,1) forwards; }
+/* On the dark page, text starts in the page colour and turns to ink as the pen passes. */
+.swipe-ink { background-size: 0% 80%; color: var(--paper); animation: swipe 700ms 150ms cubic-bezier(.6,.05,.3,1) forwards, inkify 350ms 400ms forwards; }
+@keyframes swipe { to { background-size: 100% 80%; } }
+@keyframes inkify { to { color: var(--ink); } }
+
+/* Points badge pops in like a sticker being slapped on. */
+@keyframes sticker {
+  0% { transform: scale(1.8) rotate(-12deg); opacity: 0; }
+  60% { transform: scale(0.92) rotate(-4deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-5deg); opacity: 1; }
+}
+.stamp { animation: sticker 420ms cubic-bezier(.2,.9,.3,1.25) both; }
+
+/* ---------- Mascot: the footnote asterisk (src/components/Mascot.tsx) ---------- */
+.mascot { overflow: visible; }
+.mascot .m-body { transform-origin: 50px 50px; transform-box: view-box; }
+.mascot .m-arms { transform-origin: 50px 50px; transform-box: view-box; }
+.mascot .m-eyes { transform-origin: 50px 47px; transform-box: view-box; animation: blink 4.5s infinite; }
+.mascot[data-mood="idle"] .m-body { animation: bob 2.6s ease-in-out infinite; }
+.mascot[data-mood="think"] .m-arms { animation: spin 3.2s linear infinite; }
+.mascot[data-mood="think"] .m-body { animation: bob 1.6s ease-in-out infinite; }
+.mascot[data-mood="happy"] .m-body { animation: hop 700ms cubic-bezier(.3,1.6,.5,1) 2; }
+.mascot[data-mood="cheer"] .m-body { animation: cheer 1.1s cubic-bezier(.3,1.6,.5,1) infinite; }
+.mascot[data-mood="sad"] .m-body { animation: droop 900ms ease-out forwards; }
+.mascot[data-mood="wow"] .m-body { animation: hop 500ms cubic-bezier(.3,1.6,.5,1) 1; }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes hop { 0%, 100% { transform: translateY(0) scale(1); } 40% { transform: translateY(-14px) scale(1.06, 0.96); } }
+@keyframes cheer { 0%, 100% { transform: translateY(0) rotate(0); } 30% { transform: translateY(-14px) rotate(-10deg); } 60% { transform: translateY(-6px) rotate(10deg); } }
+@keyframes droop { to { transform: translateY(5px) rotate(-8deg) scale(1, 0.94); } }
+@keyframes blink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.1); } }
+
+@keyframes wiggle { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
+.wiggle { animation: wiggle 2.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp, .swipe, .swipe-ink, .wiggle, .mascot * { animation: none !important; }
+  .swipe, .swipe-ink { background-size: 100% 80%; color: var(--ink); }
+  .stamp { transform: rotate(-5deg); }
+}

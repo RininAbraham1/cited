@@ -4,7 +4,7 @@
   To switch themes, change `data-theme` to any id defined in src/themes.ts.
   Color values per theme live in src/themes.css.
 -->
-<html lang="en" data-theme="archive">
+<html lang="en" data-theme="highlighter">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -12,7 +12,7 @@
     <title>Cited</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
     <!--
       First-paint background, keyed to the data-theme attribute above.
       Without this the browser paints white until the CSS bundle arrives —
@@ -22,7 +22,7 @@
     -->
     <style>
       html { background-color: #0a0a0a; color-scheme: dark; }
-      html[data-theme="archive"] { background-color: #f4efe4; color-scheme: light; }
+      html[data-theme="highlighter"] { background-color: #f4efe4; color-scheme: light; }
       /* Add one line per theme you create, mirroring its --color-background. */
     </style>
   </head>

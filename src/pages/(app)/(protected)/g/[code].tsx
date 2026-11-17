@@ -19,6 +19,7 @@ import { useAuth, usePresenceRoom, useQuery } from 'deepspace'
 import { Check, Copy, ExternalLink, Loader2, Volume2, VolumeX, X } from 'lucide-react'
 import { Button, useToast } from '@/components/ui'
 import { cn } from '@/lib/utils'
+import { Mascot, MascotSays, type Mood } from '@/components/Mascot'
 import { callAction } from '@/lib/call-action'
 import { LIMITS, type Answer, type Game, type Player, type PublicQuestion } from '@/lib/game-logic'
 
@@ -32,12 +33,13 @@ export default function GameRoomPage() {
   const { records: games, status } = useQuery<Game>('games', { where: { code: upper }, limit: 1 })
   const game = games[0]
 
-  if (status === 'loading') return <Centered><Loader2 className="h-5 w-5 animate-spin" aria-label="Loading" /></Centered>
+  if (status === 'loading') return <Centered><Mascot mood="think" size={64} label="Loading" /></Centered>
   if (!game) {
     return (
       <Centered>
-        <p className="font-display text-2xl font-bold">No game with code {upper}</p>
-        <Link to="/play" className="mt-3 text-sm text-primary underline">Back to Play</Link>
+        <Mascot mood="sad" size={96} />
+        <p className="font-display mt-4 text-3xl font-extrabold">No game with code {upper}</p>
+        <Link to="/play" className="mt-3 text-sm font-bold text-primary underline underline-offset-4">Back to Play</Link>
       </Centered>
     )
   }
@@ -128,25 +130,25 @@ function Header({ game, isHost, gameId }: { game: Game; isHost: boolean; gameId:
   const [copied, setCopied] = useState(false)
   const link = typeof window !== 'undefined' ? `${window.location.origin}/g/${game.code}` : ''
   return (
-    <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-5">
+    <header className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-border pb-5">
       <div className="min-w-0">
-        <p className="font-code text-xs uppercase tracking-[0.2em] text-muted-foreground">
+        <p className="font-code text-xs uppercase tracking-[0.16em] text-muted-foreground">
           Hosted by {game.hostName ?? 'someone'}
           {game.status !== 'generating' && game.status !== 'lobby' && game.status !== 'failed' && (
             <> · Question {Math.min(game.currentIndex + 1, game.questionCount)} of {game.questionCount}</>
           )}
         </p>
-        <h1 className="font-display mt-1 truncate text-3xl font-extrabold tracking-tight md:text-4xl">{game.topic}</h1>
+        <h1 className="font-display mt-0.5 truncate text-3xl font-extrabold leading-tight md:text-5xl">{game.topic}</h1>
       </div>
       <div className="flex items-center gap-3">
         {isHost && <HostControls game={game} gameId={gameId} />}
         <button
           onClick={() => { void navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500) }}
-          className="group flex items-center gap-2 rounded-md border-2 border-foreground bg-card px-3 py-1.5"
+          className="chunky group flex items-center gap-2 rounded-xl bg-paper px-3.5 py-1.5 text-ink"
           title="Copy invite link"
         >
-          <span className="font-code text-xl font-semibold tracking-[0.25em]" data-testid="join-code-display">{game.code}</span>
-          {copied ? <Check className="h-4 w-4 text-primary" aria-label="Copied" /> : <Copy className="h-4 w-4 text-muted-foreground group-hover:text-foreground" aria-hidden />}
+          <span className="font-code text-2xl tracking-[0.22em]" data-testid="join-code-display">{game.code}</span>
+          {copied ? <Check className="h-4 w-4" aria-label="Copied" /> : <Copy className="h-4 w-4 opacity-50 group-hover:opacity-100" aria-hidden />}
         </button>
       </div>
     </header>
@@ -207,10 +209,12 @@ function HostControls({ game, gameId }: { game: Game; gameId: string }) {
 
 function Generating({ stage, topic }: { stage?: string; topic: string }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-8">
-      <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden />
-      <h2 className="font-display mt-4 text-2xl font-bold">Researching “{topic}”</h2>
-      <p className="mt-2 text-muted-foreground" aria-live="polite">{stage || 'Starting…'}</p>
+    <div className="rounded-3xl border-2 border-border bg-card p-6 shadow-[0_6px_0_0_rgba(6,12,28,0.45)] md:p-8">
+      <Mascot mood="think" size={88} />
+      <h2 className="font-display mt-4 text-3xl font-extrabold">Reading up on “{topic}”…</h2>
+      <p className="mt-2 flex items-center gap-2 font-bold text-primary" aria-live="polite">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />{stage || 'Starting…'}
+      </p>
       <p className="mt-6 text-sm text-muted-foreground">
         Claude writes the questions from the articles, then every question is checked: if its quoted evidence
         isn’t word-for-word in the article, it’s thrown out. Share the code while you wait.
@@ -221,32 +225,34 @@ function Generating({ stage, topic }: { stage?: string; topic: string }) {
 
 function Failed({ message }: { message?: string }) {
   return (
-    <div className="rounded-lg border border-destructive/40 bg-card p-8">
-      <h2 className="font-display text-2xl font-bold">This one didn’t pan out</h2>
+    <div className="rounded-3xl border-2 border-destructive/60 bg-card p-6 md:p-8">
+      <Mascot mood="sad" size={80} />
+      <h2 className="font-display mt-3 text-3xl font-extrabold">This one didn’t pan out</h2>
       <p className="mt-2 text-muted-foreground">{message || 'Question generation failed.'}</p>
-      <Link to="/play" className="mt-5 inline-block text-sm font-medium text-primary underline">Try another topic</Link>
+      <Link to="/play" className="mt-5 inline-block"><Button>Try another topic</Button></Link>
     </div>
   )
 }
 
 function Lobby({ game, isHost, playerCount }: { game: Game; isHost: boolean; gameId: string; playerCount: number }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-8">
-      <p className="font-code text-xs uppercase tracking-[0.2em] text-primary">Ready · {game.questionCount} questions · {game.secondsPerQuestion} sec each</p>
-      <h2 className="font-display mt-3 text-3xl font-bold">
+    <div className="rounded-3xl border-2 border-border bg-card p-6 shadow-[0_6px_0_0_rgba(6,12,28,0.45)] md:p-8">
+      <MascotSays mood="idle" size={64}>{isHost ? 'Questions are ready. Fact-checked, too!' : 'Grab a snack, we start soon.'}</MascotSays>
+      <p className="font-code mt-6 text-xs uppercase tracking-[0.16em] text-primary">Ready · {game.questionCount} questions · {game.secondsPerQuestion} sec each</p>
+      <h2 className="font-display mt-1 text-3xl font-extrabold md:text-4xl">
         {isHost ? 'Start when everyone’s in.' : 'Waiting for the host to start…'}
       </h2>
       <p className="mt-3 text-muted-foreground">
         {playerCount} {playerCount === 1 ? 'player' : 'players'} in the room. Others can join at{' '}
-        <span className="font-code text-foreground">/g/{game.code}</span> or with the code above.
+        <span className="font-code text-primary">/g/{game.code}</span> or with the code above.
       </p>
       {game.sources && game.sources.length > 0 && (
         <div className="mt-6">
-          <p className="text-sm font-medium">Questions are drawn from:</p>
+          <p className="text-sm font-extrabold">Questions are drawn from:</p>
           <ul className="mt-2 flex flex-wrap gap-2">
-            {game.sources.map((s) => (
+            {game.sources.map((s, i) => (
               <li key={s.title}>
-                <a href={s.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-sm hover:border-primary">
+                <a href={s.url} target="_blank" rel="noreferrer" className={`bg-hl-${i % 4} text-ink inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-bold hover:brightness-105`}>
                   {s.title} <ExternalLink className="h-3 w-3" aria-hidden />
                 </a>
               </li>
@@ -278,6 +284,7 @@ function QuestionCard({
   const total = game.secondsPerQuestion * 1000
   const dist = question.distribution ?? []
   const maxVotes = Math.max(1, ...dist)
+  const hurry = !revealed && remainingMs < 5000
 
   async function answer(choice: number) {
     if (locked != null || closed || !isPlayer) return
@@ -289,29 +296,51 @@ function QuestionCard({
     }
   }
 
+  let mood: Mood = 'think'
+  if (revealed) mood = myAnswer?.correct ? 'happy' : myAnswer ? 'sad' : 'wow'
+  else if (locked != null) mood = 'idle'
+  else if (closed) mood = 'wow'
+
   return (
     <div>
-      {/* Timer bar */}
-      <div className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
-        <div
-          className={cn('h-full transition-[width] duration-200 ease-linear', remainingMs < 5000 ? 'bg-primary' : 'bg-foreground')}
-          style={{ width: `${revealed ? 0 : (remainingMs / total) * 100}%` }}
-        />
-      </div>
-      <div className="mt-2 flex justify-between font-code text-xs text-muted-foreground">
-        <span>{revealed ? 'Answer' : `${Math.ceil(remainingMs / 1000)}s`}</span>
-        <span>{answeredCount}/{playerCount} answered</span>
+      {/* Timer */}
+      <div className="flex items-center gap-3">
+        <span
+          className={cn(
+            'font-code grid h-12 w-12 shrink-0 place-items-center rounded-full text-lg text-ink transition-colors',
+            revealed ? 'bg-hl-2' : hurry ? 'bg-hl-1 wiggle' : 'bg-hl-0',
+          )}
+          aria-hidden
+        >
+          {revealed ? '✓' : Math.ceil(remainingMs / 1000)}
+        </span>
+        <div className="flex-1">
+          <div className="h-4 overflow-hidden rounded-full bg-muted p-0.5" aria-hidden>
+            <div
+              className={cn('h-full rounded-full transition-[width] duration-200 ease-linear', hurry ? 'bg-hl-1' : 'bg-hl-0')}
+              style={{ width: `${revealed ? 0 : (remainingMs / total) * 100}%` }}
+            />
+          </div>
+          <div className="mt-1 flex justify-between text-xs font-bold text-muted-foreground">
+            <span>{revealed ? 'Answer' : `${Math.ceil(remainingMs / 1000)}s`}</span>
+            <span>{answeredCount}/{playerCount} answered</span>
+          </div>
+        </div>
       </div>
 
-      <h2 className="font-display mt-6 text-2xl font-bold leading-snug md:text-3xl" data-testid="question-prompt">
-        {question.prompt}
-      </h2>
+      <div className="mt-6 flex items-start gap-3">
+        <Mascot mood={mood} size={56} className="mt-1 hidden sm:block" key={mood} />
+        <h2 className="font-display text-2xl font-extrabold leading-tight md:text-[2rem]" data-testid="question-prompt">
+          {question.prompt}
+        </h2>
+      </div>
 
       <ol className="mt-6 grid gap-3 sm:grid-cols-2">
         {question.choices.map((choice, i) => {
           const isMine = locked === i
           const isRight = revealed && question.answerIndex === i
           const isWrongMine = revealed && isMine && !isRight
+          const dimmed = (revealed && !isRight) || (!revealed && locked != null && !isMine)
           return (
             <li key={i}>
               <button
@@ -319,27 +348,26 @@ function QuestionCard({
                 disabled={locked != null || closed || !isPlayer}
                 data-testid={`choice-${i}`}
                 className={cn(
-                  'relative flex w-full items-center gap-3 overflow-hidden rounded-md border-2 bg-card px-4 py-4 text-left transition-colors',
-                  !revealed && locked == null && !closed && 'hover:border-foreground',
-                  !revealed && isMine && 'border-foreground bg-foreground text-background',
-                  !revealed && !isMine && 'border-border',
-                  revealed && isRight && 'border-primary',
-                  revealed && !isRight && 'border-border opacity-70',
-                  isWrongMine && 'border-dashed',
+                  `chunky bg-hl-${i} text-ink relative flex min-h-16 w-full items-center gap-3 overflow-hidden rounded-2xl px-4 py-3.5 text-left`,
+                  'disabled:cursor-default',
+                  dimmed && 'opacity-40',
+                  (isMine || isRight) && 'outline-4 outline-offset-3 outline-[var(--paper)]',
+                  isWrongMine && 'opacity-60',
                 )}
               >
                 {revealed && (
                   <span
-                    className={cn('absolute inset-y-0 left-0', isRight ? 'bg-primary/15' : 'bg-muted')}
+                    className="bg-ink absolute inset-y-0 left-0 opacity-15"
                     style={{ width: `${((dist[i] ?? 0) / maxVotes) * 100}%` }}
                     aria-hidden
                   />
                 )}
-                <span className="font-code relative w-5 shrink-0 text-sm font-semibold">{LETTERS[i]}</span>
-                <span className="relative flex-1 font-medium">{choice}</span>
-                {revealed && <span className="font-code relative text-xs text-muted-foreground">{dist[i] ?? 0}</span>}
-                {revealed && isRight && <Check className="relative h-5 w-5 text-primary" aria-label="Correct answer" />}
-                {isWrongMine && <X className="relative h-5 w-5 text-muted-foreground" aria-label="Your answer" />}
+                <span className="bg-ink font-code relative grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm text-[var(--paper)]">{LETTERS[i]}</span>
+                <span className="relative flex-1 text-base font-extrabold leading-snug">{choice}</span>
+                {revealed && <span className="font-code relative rounded-full bg-[var(--paper)]/70 px-2 text-xs">{dist[i] ?? 0}</span>}
+                {revealed && isRight && <Check className="relative h-6 w-6" strokeWidth={3.5} aria-label="Correct answer" />}
+                {isWrongMine && <X className="relative h-6 w-6" strokeWidth={3.5} aria-label="Your answer" />}
+                {!revealed && isMine && <span className="font-code relative rounded-full bg-ink px-2 py-0.5 text-[10px] uppercase tracking-wider text-[var(--paper)]">Locked</span>}
               </button>
             </li>
           )
@@ -347,19 +375,21 @@ function QuestionCard({
       </ol>
 
       {!revealed && (
-        <p className="mt-4 text-sm text-muted-foreground" aria-live="polite">
-          {!isPlayer ? 'Joining…' : locked != null ? 'Locked in. Waiting for the reveal…' : closed ? 'Time’s up!' : 'Faster correct answers score more.'}
+        <p className="mt-5 font-bold text-muted-foreground" aria-live="polite">
+          {!isPlayer ? 'Joining…' : locked != null ? 'Locked in! Waiting for the reveal…' : closed ? 'Time’s up!' : 'Faster correct answers score more.'}
         </p>
       )}
 
       {revealed && (
-        <div className="mt-6">
-          {myAnswer?.points != null && (
-            <p className="stamp font-display inline-block rounded border-2 border-primary px-3 py-1 text-lg font-extrabold uppercase text-primary">
-              {myAnswer.correct ? `+${myAnswer.points}` : 'No points'}
-            </p>
-          )}
-          {myAnswer == null && isPlayer && <p className="text-sm text-muted-foreground">You didn’t answer this one.</p>}
+        <div className="mt-7">
+          <div className="flex flex-wrap items-center gap-3">
+            {myAnswer?.points != null && (
+              <p className={cn('stamp font-display inline-block rounded-2xl px-4 py-1.5 text-2xl font-extrabold text-ink shadow-[0_4px_0_0_rgba(6,12,28,0.5)]', myAnswer.correct ? 'bg-hl-2' : 'bg-hl-1')}>
+                {myAnswer.correct ? `+${myAnswer.points}` : 'No points'}
+              </p>
+            )}
+            {myAnswer == null && isPlayer && <p className="font-bold text-muted-foreground">You didn’t answer this one.</p>}
+          </div>
           <Citation question={question} />
         </div>
       )}
@@ -369,17 +399,20 @@ function QuestionCard({
 
 function Citation({ question }: { question: PublicQuestion }) {
   return (
-    <figure className="mt-4 rounded-lg border border-border bg-card p-5" data-testid="citation">
-      <figcaption className="font-code text-xs uppercase tracking-[0.2em] text-muted-foreground">
-        From the article{' '}
+    <figure className="bg-paper text-ink relative mt-5 rounded-3xl p-5 shadow-[0_6px_0_0_rgba(6,12,28,0.5)] md:p-6" data-testid="citation">
+      <span className="font-display absolute -top-4 left-5 rounded-full bg-hl-0 px-3 py-0.5 text-sm font-extrabold">✱ The receipt</span>
+      <blockquote className="mt-2 text-lg font-semibold leading-relaxed md:text-xl">
+        “<span className="hl-mark swipe">{question.quote}</span>”
+      </blockquote>
+      <figcaption className="mt-3 text-sm font-bold">
+        <span className="opacity-60">From the article </span>
         {question.sourceUrl ? (
-          <a href={question.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary underline">
+          <a href={question.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline decoration-2 underline-offset-2">
             {question.sourceTitle} <ExternalLink className="h-3 w-3" aria-hidden />
           </a>
         ) : question.sourceTitle}
       </figcaption>
-      <blockquote className="font-display mt-3 text-lg leading-[1.7rem]">“{question.quote}”</blockquote>
-      {question.explanation && <p className="mt-3 text-sm text-muted-foreground">{question.explanation}</p>}
+      {question.explanation && <p className="mt-2 text-sm opacity-75">{question.explanation}</p>}
     </figure>
   )
 }
@@ -387,38 +420,47 @@ function Citation({ question }: { question: PublicQuestion }) {
 function Finished({ game, players, questions }: { game: Game; players: Rec<Player>[]; questions: Rec<PublicQuestion>[] }) {
   const podium = players.slice(0, 3)
   const ordered = [...questions].sort((a, b) => a.data.index - b.data.index)
+  const medal = ['bg-hl-0', 'bg-hl-3', 'bg-hl-1']
   return (
     <div>
-      <p className="font-code text-xs uppercase tracking-[0.2em] text-primary">Final scores</p>
-      <ol className="mt-4 grid gap-3 sm:grid-cols-3">
+      <div className="flex items-center gap-4">
+        <Mascot mood="cheer" size={84} />
+        <div>
+          <p className="font-code text-xs uppercase tracking-[0.16em] text-primary">Game over</p>
+          <h2 className="font-display text-4xl font-extrabold leading-none">Final scores</h2>
+        </div>
+      </div>
+      <ol className="mt-6 grid gap-3 sm:grid-cols-3">
         {podium.map((p, i) => (
-          <li key={p.recordId} className={cn('rounded-lg border-2 bg-card p-5', i === 0 ? 'border-primary' : 'border-border')}>
-            <p className="font-code text-sm text-muted-foreground">#{i + 1}</p>
-            <p className="font-display mt-1 truncate text-2xl font-bold">{p.data.name}</p>
-            <p className="font-code mt-2 text-lg">{p.data.score} pts</p>
-            <p className="text-xs text-muted-foreground">{p.data.correctCount}/{game.questionCount} correct</p>
+          <li key={p.recordId} className={cn('rounded-3xl p-5 text-ink shadow-[0_6px_0_0_rgba(6,12,28,0.5)]', medal[i], i === 0 && 'sm:-translate-y-2')}>
+            <p className="font-code text-sm">#{i + 1}{i === 0 && ' 👑'}</p>
+            <p className="font-display mt-1 truncate text-2xl font-extrabold">{p.data.name}</p>
+            <p className="font-code mt-1 text-2xl">{p.data.score} pts</p>
+            <p className="text-xs font-bold opacity-70">{p.data.correctCount}/{game.questionCount} correct</p>
           </li>
         ))}
       </ol>
 
-      <h3 className="font-display mt-10 text-xl font-bold">The receipts</h3>
+      <h3 className="font-display mt-10 text-2xl font-extrabold">The receipts</h3>
       <ol className="mt-3 space-y-3">
         {ordered.map((q) => (
-          <li key={q.recordId} className="rounded-lg border border-border bg-card p-4">
-            <p className="font-medium">{q.data.index + 1}. {q.data.prompt}</p>
+          <li key={q.recordId} className="rounded-2xl border-2 border-border bg-card p-4">
+            <p className="font-bold">{q.data.index + 1}. {q.data.prompt}</p>
             {q.data.answerIndex != null && (
-              <p className="mt-1 text-sm"><span className="text-primary">✓ {q.data.choices[q.data.answerIndex]}</span></p>
+              <p className="mt-1.5 text-sm">
+                <span className={`bg-hl-${q.data.answerIndex} text-ink rounded-full px-2.5 py-0.5 font-extrabold`}>✓ {q.data.choices[q.data.answerIndex]}</span>
+              </p>
             )}
             {q.data.quote && (
               <p className="mt-2 text-sm text-muted-foreground">
                 “{q.data.quote}” —{' '}
-                <a href={q.data.sourceUrl} target="_blank" rel="noreferrer" className="underline">{q.data.sourceTitle}</a>
+                <a href={q.data.sourceUrl} target="_blank" rel="noreferrer" className="font-bold text-foreground underline underline-offset-2">{q.data.sourceTitle}</a>
               </p>
             )}
           </li>
         ))}
       </ol>
-      <Link to="/play" className="mt-8 inline-block"><Button>Play another topic</Button></Link>
+      <Link to="/play" className="mt-8 inline-block"><Button size="lg">Play another topic</Button></Link>
     </div>
   )
 }
@@ -427,25 +469,30 @@ function Scoreboard({
   players, online, meId, hostId, highlightIndex,
 }: { players: Rec<Player>[]; online: Set<string>; meId: string | null; hostId: string; highlightIndex: number | null }) {
   return (
-    <div className="rounded-lg border border-border bg-card">
-      <p className="border-b border-border px-4 py-2.5 font-code text-xs uppercase tracking-[0.2em] text-muted-foreground">
-        Players · {players.length}
+    <div className="overflow-hidden rounded-3xl border-2 border-border bg-card shadow-[0_6px_0_0_rgba(6,12,28,0.45)]">
+      <p className="font-display border-b-2 border-border px-4 py-2.5 text-lg font-extrabold">
+        Players <span className="text-muted-foreground">· {players.length}</span>
       </p>
-      <ol className="divide-y divide-border" data-testid="scoreboard">
+      <ol className="space-y-1 p-2" data-testid="scoreboard">
         {players.map((p, i) => {
           const answered = highlightIndex != null && p.data.lastAnswered === highlightIndex
+          const isOnline = online.has(p.data.userId)
           return (
-            <li key={p.recordId} className={cn('flex items-center gap-2.5 px-4 py-2.5 text-sm', p.data.userId === meId && 'bg-muted/60')}>
-              <span className="font-code w-5 text-xs text-muted-foreground">{i + 1}</span>
-              <span
-                className={cn('h-2 w-2 shrink-0 rounded-full', online.has(p.data.userId) ? 'bg-success' : 'bg-border')}
-                title={online.has(p.data.userId) ? 'In the room' : 'Away'}
-              />
-              <span className="min-w-0 flex-1 truncate">
-                {p.data.name}
-                {p.data.userId === hostId && <span className="ml-1.5 text-xs text-muted-foreground">host</span>}
+            <li key={p.recordId} className={cn('flex items-center gap-2.5 rounded-2xl px-2.5 py-2 text-sm', p.data.userId === meId && 'bg-secondary')}>
+              <span className="relative">
+                <span className={`bg-hl-${i % 4} font-display grid h-8 w-8 place-items-center rounded-full text-sm font-extrabold text-ink`}>
+                  {(p.data.name?.[0] ?? '?').toUpperCase()}
+                </span>
+                <span
+                  className={cn('absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card', isOnline ? 'bg-success' : 'bg-muted-foreground')}
+                  title={isOnline ? 'In the room' : 'Away'}
+                />
               </span>
-              {answered && <Check className="h-3.5 w-3.5 text-primary" aria-label="Answered" />}
+              <span className="min-w-0 flex-1 truncate font-bold">
+                {p.data.name}
+                {p.data.userId === hostId && <span className="ml-1.5 rounded-full bg-muted px-1.5 text-[10px] font-extrabold uppercase text-muted-foreground">host</span>}
+              </span>
+              {answered && <Check className="h-4 w-4 text-[var(--hl-green)]" strokeWidth={3.5} aria-label="Answered" />}
               <span className="font-code tabular-nums">{p.data.score}</span>
             </li>
           )

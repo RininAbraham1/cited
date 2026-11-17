@@ -17,6 +17,8 @@ APP="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="$(mktemp -d)"
 PIDS=()
 cleanup() {
+  # SHOTS_OUT=<dir> keeps the screenshots after the temp dir is removed.
+  if [ -n "${SHOTS_OUT:-}" ] && [ -d "$WORK/shots" ]; then mkdir -p "$SHOTS_OUT" && cp "$WORK"/shots/*.png "$SHOTS_OUT"/ 2>/dev/null || true; fi
   # Each server runs in its own process group (setsid), so this also stops
   # wrangler's workerd children and nothing outlives the run.
   for pid in "${PIDS[@]:-}"; do [ -n "$pid" ] && kill -- -"$pid" 2>/dev/null || true; done

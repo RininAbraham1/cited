@@ -15,6 +15,7 @@ import { ChevronDown, LogOut, Menu, X } from 'lucide-react'
 import { APP_NAME } from '../constants'
 import type { Role } from '../constants'
 import { nav } from '../nav'
+import { Mascot } from './Mascot'
 import { cn } from '../lib/utils'
 import {
   Avatar,
@@ -58,8 +59,8 @@ export default function Navigation() {
         to={item.path}
         aria-current={active ? 'page' : undefined}
         className={cn(
-          'px-3 py-1.5 text-sm',
-          active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+          'rounded-full px-3 py-1.5 text-sm font-bold',
+          active ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground',
         )}
       >
         {item.label}
@@ -70,9 +71,10 @@ export default function Navigation() {
   return (
     <>
       <nav data-testid="app-navigation" className="border-b border-border bg-background">
-        <div className="mx-auto flex h-12 max-w-7xl items-center gap-4 px-4">
-          <Link to="/play" className="font-display text-lg font-extrabold tracking-tight text-foreground">
-            {APP_NAME}<span className="text-primary">.</span>
+        <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4">
+          <Link to="/play" className="flex items-center gap-1.5 text-foreground">
+            <Mascot size={30} />
+            <span className="font-display text-2xl font-extrabold leading-none">{APP_NAME}</span>
           </Link>
 
           <div className="hidden items-center md:flex">{visibleNav.map(navLink)}</div>
@@ -136,7 +138,7 @@ export default function Navigation() {
             <button
               data-testid="nav-sign-in-button"
               onClick={() => setShowAuthModal(true)}
-              className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+              className="chunky rounded-xl bg-primary px-4 py-1.5 text-sm font-extrabold text-primary-foreground"
             >
               Sign in
             </button>
