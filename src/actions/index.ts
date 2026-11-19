@@ -11,6 +11,13 @@
  *   reveal         host any time; anyone once the deadline has passed, so a
  *                  host who closes their laptop can't freeze the room
  *   speakQuestion  host only: ElevenLabs reads the open question aloud
+ *   drawCard       a player who answered right picks 1 of 3 face-down cards;
+ *                  the server deals and applies it (the browser never decides)
+ *   playSteal      the Jester: take 20% of another player's points, unless
+ *                  they hold a Librarian shield
+ *
+ * Scores are never incremented. Every change recomputes them from the stored
+ * answers plus the card_plays ledger, so retries and races can't double count.
  *
  * Remember: `tools.*` runs with RBAC off (see src/server/action-routes.ts), so
  * every ownership check below is load-bearing.
@@ -21,6 +28,15 @@ import type { ActionHandler, ActionResult, ActionTools } from 'deepspace/worker'
 import type { Env } from '../../worker'
 import {
   LIMITS,
+  CARD_LIMITS,
+  CARDS,
+  dealHand,
+  oracleStrikes,
+  redactedPenalty,
+  scoreWithCards,
+  stealOutcome,
+  streakAt,
+  streakMultiplier,
   distributionFor,
   makeJoinCode,
   normalizeJoinCode,
@@ -28,6 +44,9 @@ import {
   totalsFor,
   type Answer,
   type BankQuestion,
+  type CardId,
+  type CardPlay,
+  type Draw,
   type Game,
   type Player,
 } from '../lib/game-logic'
@@ -67,6 +86,20 @@ function str(v: unknown): string | null {
   return typeof v === 'string' && v.length > 0 ? v : null
 }
 
+/** Recompute every player's score from answers + card ledger. Idempotent. */
+async function recomputeScores(tools: ActionTools, gameId: string, answers?: Envelope<Answer>[]): Promise<void> {
+  const all = answers ?? (await queryAll<Answer>(tools, 'answers', { gameId }, 2000))
+  const plays = (await queryAll<CardPlay>(tools, 'card_plays', { gameId }, 2000)).map((p) => p.data)
+  const players = await queryAll<Player>(tools, 'players', { gameId })
+  for (const p of players) {
+    const t = totalsFor(all.filter((a) => a.data.userId === p.data.userId).map((a) => a.data))
+    const score = scoreWithCards(t.score, plays, p.data.userId)
+    if (score !== p.data.score || t.correctCount !== p.data.correctCount) {
+      await tools.update('players', p.recordId, { score, correctCount: t.correctCount })
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 
 const createGame: ActionHandler<Env> = async ({ userId, params, tools, env }) => {
@@ -78,6 +111,7 @@ const createGame: ActionHandler<Env> = async ({ userId, params, tools, env }) =>
   const secondsPerQuestion = Number(params.secondsPerQuestion)
   if (!(LIMITS.questionCounts as readonly number[]).includes(questionCount)) return fail('Invalid question count.')
   if (!(LIMITS.secondsOptions as readonly number[]).includes(secondsPerQuestion)) return fail('Invalid timer.')
+  const mode = params.mode === 'solo' ? 'solo' : 'party'
 
   // Spend control: each game costs several Wikipedia calls and a model call.
   const mine = await queryAll<Game>(tools, 'games', { hostId: userId }, 200)
@@ -108,6 +142,7 @@ const createGame: ActionHandler<Env> = async ({ userId, params, tools, env }) =>
     currentIndex: -1,
     endsAt: 0,
     sources: [],
+    mode,
   })
   if (!created.success) return created
   const gameId = created.data.recordId
@@ -138,6 +173,7 @@ const joinGame: ActionHandler<Env> = async ({ userId, params, tools }) => {
   if (players.some((p) => p.data.userId === userId)) {
     return { success: true, data: { gameId: game.recordId, code } }
   }
+  if (game.data.mode === 'solo') return fail('That’s a solo run, so nobody else can join.')
   if (players.length >= LIMITS.maxPlayers) return fail('That game is full.')
 
   const r = await tools.create('players', {
@@ -164,7 +200,9 @@ const advance: ActionHandler<Env> = async ({ userId, params, tools }) => {
 
   const next = g.currentIndex + 1
   if (next >= g.questionCount) {
-    await tools.update('games', gameId, { status: 'finished', endsAt: 0 })
+    let bestBefore: number | undefined
+    if (g.mode === 'solo') bestBefore = await saveBest(tools, userId, gameId, g.topic)
+    await tools.update('games', gameId, { status: 'finished', endsAt: 0, ...(bestBefore != null ? { bestBefore } : {}) })
     return { success: true, data: { finished: true } }
   }
 
@@ -185,6 +223,18 @@ const advance: ActionHandler<Env> = async ({ userId, params, tools }) => {
   if (!pub.success) return pub
   await tools.update('games', gameId, { status: 'question', currentIndex: next, endsAt })
   return { success: true, data: { index: next, endsAt } }
+}
+
+/** Solo: keep the player's best score per topic. Returns the previous best. */
+async function saveBest(tools: ActionTools, userId: string, gameId: string, topic: string): Promise<number> {
+  const [me] = await queryAll<Player>(tools, 'players', { gameId, userId }, 1)
+  const score = me?.data.score ?? 0
+  const topicKey = topic.trim().toLowerCase()
+  const [best] = await queryAll<{ score: number }>(tools, 'bests', { userId, topicKey }, 1)
+  const before = best?.data.score ?? 0
+  if (!best) await tools.create('bests', { userId, topicKey, topic, score, gameId })
+  else if (score > before) await tools.update('bests', best.recordId, { score, gameId, topic })
+  return before
 }
 
 const submitAnswer: ActionHandler<Env> = async ({ userId, params, tools }) => {
@@ -237,28 +287,40 @@ const reveal: ActionHandler<Env> = async ({ userId, params, tools }) => {
   const bankRows = await queryAll<BankQuestion>(tools, 'question_bank', { gameId })
   const keyByIndex = new Map(bankRows.map((b) => [b.data.index, b.data]))
   const answers = await queryAll<Answer>(tools, 'answers', { gameId }, 2000)
+  const draws = await queryAll<Draw>(tools, 'draws', { gameId }, 2000)
+  const twins = new Set(
+    draws.filter((d) => d.data.card === 'twins' && d.data.appliesTo != null).map((d) => `${d.data.userId}:${d.data.appliesTo}`),
+  )
 
   // Score every unscored answer up to this question — including one that
-  // slipped in during a previous reveal's window — then recompute totals.
-  for (const a of answers) {
-    if (a.data.points != null || a.data.index > index) continue
+  // slipped in during a previous reveal's window. Sorted so streaks see
+  // earlier answers first. Speed points × streak bonus × Twins.
+  const correctBy = new Map<string, Map<number, boolean>>()
+  for (const a of [...answers].sort((x, y) => x.data.index - y.data.index)) {
+    let mine = correctBy.get(a.data.userId)
+    if (!mine) correctBy.set(a.data.userId, (mine = new Map()))
+    if (a.data.points != null) { mine.set(a.data.index, !!a.data.correct); continue }
+    if (a.data.index > index) continue
     const key = keyByIndex.get(a.data.index)
     if (!key) continue
     const inTime = a.data.elapsedMs <= durationMs + LIMITS.answerGraceMs
     const correct = inTime && a.data.choice === key.answerIndex
-    const points = pointsFor(correct, a.data.elapsedMs, durationMs)
+    mine.set(a.data.index, correct)
+    let points = pointsFor(correct, a.data.elapsedMs, durationMs)
+    if (correct) points = Math.round(points * streakMultiplier(streakAt(mine, a.data.index)))
+    if (correct && twins.has(`${a.data.userId}:${a.data.index}`)) points *= 2
     a.data.correct = correct
     a.data.points = points
     await tools.update('answers', a.recordId, { correct, points })
   }
-
-  const players = await queryAll<Player>(tools, 'players', { gameId })
-  for (const p of players) {
-    const totals = totalsFor(answers.filter((a) => a.data.userId === p.data.userId).map((a) => a.data))
-    if (totals.score !== p.data.score || totals.correctCount !== p.data.correctCount) {
-      await tools.update('players', p.recordId, totals)
+  // Twins and Oracle cards for this question are now spent.
+  for (const d of draws) {
+    if (d.data.status === 'active' && d.data.appliesTo != null && d.data.appliesTo <= index) {
+      await tools.update('draws', d.recordId, { status: 'used' })
     }
   }
+
+  await recomputeScores(tools, gameId, answers)
 
   const key = keyByIndex.get(index)
   if (key) {
@@ -297,6 +359,97 @@ const speakQuestion: ActionHandler<Env> = async ({ userId, params, tools }) => {
   return { success: true, data: { audioUrl: r.data.audioUrl } }
 }
 
+const drawCard: ActionHandler<Env> = async ({ userId, params, tools, env }) => {
+  const gameId = str(params.gameId)
+  const index = Number(params.index)
+  const slot = Number(params.slot)
+  if (!gameId || !Number.isInteger(index) || !Number.isInteger(slot) || slot < 0 || slot > 2) return fail('Invalid draw.')
+  const game = await getRecord<Game>(tools, 'games', gameId)
+  if (!game) return fail('Game not found.')
+  const g = game.data
+  // Draw during that question's reveal, or while the next question is open.
+  const open = (g.status === 'reveal' && g.currentIndex === index) || (g.status === 'question' && g.currentIndex === index + 1)
+  if (!open) return fail('Too late to draw for that question.')
+
+  const [answer] = await queryAll<Answer>(tools, 'answers', { gameId, index, userId }, 1)
+  if (!answer?.data.correct) return fail('Only right answers earn a card.')
+  const players = await queryAll<Player>(tools, 'players', { gameId })
+  const me = players.find((p) => p.data.userId === userId)
+  if (!me) return fail('Join the game first.')
+
+  const solo = g.mode === 'solo' || players.length < 2
+  const lastQuestion = index + 1 >= g.questionCount
+  const offered = testHand(env) ?? dealHand({ solo, lastQuestion })
+  const card = offered[slot]
+
+  const draw: Draw = { gameId, index, userId, card, offered, slot, status: 'done' }
+  if (card === 'twins') Object.assign(draw, { status: 'active', appliesTo: index + 1 })
+  if (card === 'librarian') draw.status = 'active'
+  if (card === 'jester') draw.status = 'pending'
+  if (card === 'oracle') {
+    const next = await getRecord<BankQuestion>(tools, 'question_bank', `${gameId}-q${index + 1}`)
+    if (!next) return fail('Next question missing.')
+    Object.assign(draw, { status: 'active', appliesTo: index + 1, strike: oracleStrikes(next.data.answerIndex, next.data.choices.length) })
+  }
+
+  // No explicit id: uniqueOn(gameId, index, userId) refuses a second draw.
+  const created = await tools.create('draws', { ...draw })
+  if (!created.success) return /duplicate/i.test(created.error) ? fail('You already drew a card for this question.') : created
+
+  let delta = 0
+  if (card !== 'jester') {
+    if (card === 'scholar') delta = CARD_LIMITS.scholarBonus
+    if (card === 'redacted') delta = redactedPenalty(me.data.score)
+    // Deterministic id: at most one ledger row per draw, whatever retries happen.
+    await tools.create('card_plays', {
+      gameId, index, card, actorId: userId, actorName: me.data.name ?? 'Player', actorDelta: delta, targetDelta: 0,
+    }, `${gameId}-c${index}-${userId}`)
+    if (delta !== 0) await recomputeScores(tools, gameId)
+  }
+  return { success: true, data: { card, offered, delta, needsTarget: card === 'jester' } }
+}
+
+/** The test id can never be registered, so this seam is dead in production. */
+const TEST_APP_ID = 'app_00000000000000000000000000'
+function testHand(env: Env): CardId[] | null {
+  if (env.DEEPSPACE_APP_ID !== TEST_APP_ID || !env.CARD_DECK_OVERRIDE) return null
+  const hand = env.CARD_DECK_OVERRIDE.split(',').map((c) => c.trim()) as CardId[]
+  return hand.length === 3 && hand.every((c) => c in CARDS) ? hand : null
+}
+
+const playSteal: ActionHandler<Env> = async ({ userId, params, tools }) => {
+  const gameId = str(params.gameId)
+  const index = Number(params.index)
+  const targetId = str(params.targetUserId)
+  if (!gameId || !Number.isInteger(index) || !targetId) return fail('Invalid steal.')
+  if (targetId === userId) return fail('You can’t steal from yourself.')
+  const game = await getRecord<Game>(tools, 'games', gameId)
+  if (!game) return fail('Game not found.')
+  if (game.data.status === 'finished' || game.data.status === 'failed') return fail('The game is over.')
+
+  const [draw] = await queryAll<Draw>(tools, 'draws', { gameId, index, userId }, 1)
+  if (!draw || draw.data.card !== 'jester' || draw.data.status !== 'pending') return fail('No Jester to play.')
+  const players = await queryAll<Player>(tools, 'players', { gameId })
+  const me = players.find((p) => p.data.userId === userId)
+  const target = players.find((p) => p.data.userId === targetId)
+  if (!me || !target) return fail('Pick a player in this game.')
+
+  const [shield] = await queryAll<Draw>(tools, 'draws', { gameId, userId: targetId, card: 'librarian', status: 'active' }, 1)
+  const out = stealOutcome(target.data.score, !!shield)
+  // Deterministic id: a double-tap can't steal twice.
+  const r = await tools.create('card_plays', {
+    gameId, index, card: 'jester',
+    actorId: userId, actorName: me.data.name ?? 'Player',
+    targetId, targetName: target.data.name ?? 'Player',
+    actorDelta: out.thief, targetDelta: out.victim, blocked: !!shield,
+  }, `${gameId}-c${index}-${userId}`)
+  if (!r.success) return /duplicate/i.test(r.error) ? fail('Already played.') : r
+  await tools.update('draws', draw.recordId, { status: 'used' })
+  if (shield) await tools.update('draws', shield.recordId, { status: 'used' })
+  await recomputeScores(tools, gameId)
+  return { success: true, data: { amount: out.thief, blocked: !!shield, targetName: target.data.name ?? 'Player' } }
+}
+
 export const actions: Record<string, ActionHandler<Env>> = {
   createGame,
   joinGame,
@@ -304,4 +457,6 @@ export const actions: Record<string, ActionHandler<Env>> = {
   submitAnswer,
   reveal,
   speakQuestion,
+  drawCard,
+  playSteal,
 }

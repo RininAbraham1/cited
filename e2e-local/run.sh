@@ -6,9 +6,8 @@
 #   - mock-api.mjs plays the DeepSpace auth + api workers: it signs JWTs with a
 #     throwaway key and returns canned Wikipedia/Claude/ElevenLabs responses
 #     (including one hallucinated quote that the grounding check must reject).
-#   - a placeholder app id, in a temp COPY of the app, because builds refuse
-#     an unregistered id and this repo must keep `__APP_ID__` until a real
-#     `deepspace deploy` registers it.
+#   - a placeholder app id, in a temp COPY of the app, so local test data
+#     never touches the real (registered) app's rooms.
 #
 # Usage: npm install, then  bash e2e-local/run.sh
 # (ui.mjs needs a Chromium: `npx playwright install chromium`, or set PW_CHROMIUM_PATH.)
@@ -36,7 +35,7 @@ mkdir -p "$WORK/app" "$WORK/harness" "$WORK/shots"
 (cd "$APP" && tar --exclude=node_modules --exclude=dist --exclude=.wrangler --exclude=e2e-local -cf - .) | tar -xf - -C "$WORK/app"
 ln -s "$APP/node_modules" "$WORK/app/node_modules"
 cp "$APP"/e2e-local/*.mjs "$WORK/harness/"
-sed -i.bak 's/__APP_ID__/app_00000000000000000000000000/' "$WORK/app/wrangler.toml"
+sed -i.bak -E 's/^(DEEPSPACE_APP_ID = )"[^"]*"/\1"app_00000000000000000000000000"/' "$WORK/app/wrangler.toml"
 echo "app:app_00000000000000000000000000" > "$WORK/harness/scope.txt"
 
 node "$WORK/harness/keys.mjs" "$WORK/harness"
@@ -49,6 +48,7 @@ API_WORKER_URL="http://127.0.0.1:8799"
 PLATFORM_WORKER_URL="http://127.0.0.1:8799"
 OWNER_USER_ID="user_owner"
 APP_OWNER_JWT="owner-jwt-placeholder"
+CARD_DECK_OVERRIDE="jester,librarian,scholar"
 VARS
 
 (cd "$WORK/app" && npx vite build > "$WORK/build.log" 2>&1)

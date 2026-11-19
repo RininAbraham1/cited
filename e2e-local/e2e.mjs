@@ -123,6 +123,28 @@ const rev = q0r.records[0]?.data
 check('reveal publishes answer, quote, source, distribution', rev.answerIndex === right0 && rev.quote?.length > 20 && rev.sourceUrl?.startsWith('https://en.wikipedia.org/wiki/') && rev.distribution?.[right0] === 1, JSON.stringify(rev).slice(0, 300))
 check('late answer after reveal refused', (await act('host', 'submitAnswer', { gameId, index: 0, choice: right0 })).success === false)
 
+// 6b. footnote cards
+check('wrong answer earns no card', (await act('bob', 'drawCard', { gameId, index: 0, slot: 1 })).success === false)
+check('bad slot refused', (await act('alice', 'drawCard', { gameId, index: 0, slot: 7 })).success === false)
+// The local deck is fixed to [jester, librarian, scholar] (test seam, see worker.ts).
+const drew = await act('alice', 'drawCard', { gameId, index: 0, slot: 0 })
+check('right answer draws a card (server deals 3)', drew.success === true && drew.data.offered?.length === 3 && drew.data.offered[0] === drew.data.card, JSON.stringify(drew).slice(0, 200))
+check('second draw for the same question refused', (await act('alice', 'drawCard', { gameId, index: 0, slot: 0 })).success === false)
+const aliceDraws = await snapshot('alice', 'draws', { gameId }); aliceDraws.ws.close()
+const bobDraws = await snapshot('bob', 'draws', { gameId }); bobDraws.ws.close()
+check('alice sees her own draw', aliceDraws.records.length === 1, `${aliceDraws.records.length}`)
+check('bob cannot see alice’s draw (Oracle/shield stay secret)', bobDraws.records.length === 0, `${bobDraws.records.length}`)
+check('playSteal without a Jester refused', (await act('bob', 'playSteal', { gameId, index: 0, targetUserId: users.alice })).success === false)
+check('alice drew The Jester (fixed local deck)', drew.data?.card === 'jester' && drew.data.needsTarget === true)
+check('cannot steal from yourself', (await act('alice', 'playSteal', { gameId, index: 0, targetUserId: users.alice })).success === false)
+check('cannot steal from someone outside the game', (await act('alice', 'playSteal', { gameId, index: 0, targetUserId: users.eve })).success === false)
+const playsSnap = await snapshot('bob', 'card_plays', { gameId }); playsSnap.ws.close()
+check('an unplayed Jester is not announced yet', playsSnap.records.length === 0, `${playsSnap.records.length}`)
+const afterCard = await snapshot('alice', 'players', { gameId }); afterCard.ws.close()
+const aliceNow = afterCard.records.find((r) => r.data.userId === users.alice)?.data.score
+const cardDelta = playsSnap.records.filter((r) => r.data.actorId === users.alice).reduce((s, r) => s + (r.data.actorDelta ?? 0), 0)
+check('card delta is reflected in alice’s score', aliceNow === score[users.alice].score + cardDelta, `card=${drew.data?.card} before=${score[users.alice].score} delta=${cardDelta} now=${aliceNow}`)
+
 // 7. timeout path: open q2, nobody answers, a non-host may reveal only after the deadline (15s)
 await act('host', 'advance', { gameId })
 check('ElevenLabs read-aloud is host-only', (await act('alice', 'speakQuestion', { gameId })).success === false)
@@ -133,15 +155,78 @@ await sleep(17_000)
 check('answer after deadline refused', (await act('alice', 'submitAnswer', { gameId, index: 1, choice: 0 })).success === false)
 check('non-host can reveal after the deadline', (await act('bob', 'reveal', { gameId })).success === true)
 
-// 8. play through to the end
-for (let i = 2; i < 5; i++) {
-  await act('host', 'advance', { gameId })
-  await act('host', 'reveal', { gameId })
+// 8. play through to the end, with a shield, a blocked steal and a real steal
+const answerRight = async (who, i) => {
+  const qs = await snapshot(who, 'questions', { gameId }); qs.ws.close()
+  const q = qs.records.find((r) => r.data.index === i)?.data
+  return act(who, 'submitAnswer', { gameId, index: i, choice: q.choices.indexOf(correctText[q.prompt]) })
 }
+const scores = async () => {
+  const p = await snapshot('bob', 'players', { gameId }); p.ws.close()
+  return Object.fromEntries(p.records.map((r) => [r.data.userId, r.data.score]))
+}
+// q3: bob answers right and takes The Librarian (shield)
+await act('host', 'advance', { gameId }); await answerRight('bob', 2); await act('host', 'reveal', { gameId })
+check('bob draws The Librarian', (await act('bob', 'drawCard', { gameId, index: 2, slot: 1 })).data?.card === 'librarian')
+const beforeBlock = await scores()
+const blocked = await act('alice', 'playSteal', { gameId, index: 0, targetUserId: users.bob })
+check('alice’s Jester is blocked by bob’s shield', blocked.success && blocked.data.blocked === true && blocked.data.amount === 0, JSON.stringify(blocked))
+const afterBlock = await scores()
+check('a blocked steal moves no points', afterBlock[users.bob] === beforeBlock[users.bob] && afterBlock[users.alice] === beforeBlock[users.alice])
+check('a played Jester cannot be replayed', (await act('alice', 'playSteal', { gameId, index: 0, targetUserId: users.host })).success === false)
+// q4: bob answers right again (his shield is now spent)
+await act('host', 'advance', { gameId }); await answerRight('bob', 3); await act('host', 'reveal', { gameId })
+// q5: alice answers right, draws another Jester and robs bob for real
+await act('host', 'advance', { gameId }); await answerRight('alice', 4); await act('host', 'reveal', { gameId })
+check('alice draws a second Jester', (await act('alice', 'drawCard', { gameId, index: 4, slot: 0 })).data?.card === 'jester')
+const beforeSteal = await scores()
+// Double-tap: two concurrent plays of the same Jester.
+const [stole, stole2] = await Promise.all([
+  act('alice', 'playSteal', { gameId, index: 4, targetUserId: users.bob }),
+  act('alice', 'playSteal', { gameId, index: 4, targetUserId: users.bob }),
+])
+const afterSteal = await scores()
+const feed = await snapshot('bob', 'card_plays', { gameId }); feed.ws.close()
+check('card plays are public (bob sees the feed)', feed.records.filter((r) => r.data.card === 'jester').length === 2, `${feed.records.length}`)
+check('every steal in the ledger conserves points', feed.records.filter((r) => r.data.card === 'jester').every((r) => r.data.actorDelta + r.data.targetDelta === 0))
+const expected = Math.floor(beforeSteal[users.bob] * 0.2 / 10) * 10
+const took = [stole, stole2].find((r) => r.success)?.data
+check('steal takes 20% of bob’s points (rounded to 10)', took?.amount === expected && expected > 0, `bob=${beforeSteal[users.bob]} took=${took?.amount}`)
+check('double-tapped steal applied once', [stole, stole2].filter((r) => r.success).length >= 1 && afterSteal[users.alice] - beforeSteal[users.alice] === expected)
+check('steal conserves points exactly', afterSteal[users.alice] - beforeSteal[users.alice] === expected && beforeSteal[users.bob] - afterSteal[users.bob] === expected,
+  JSON.stringify({ beforeSteal, afterSteal }))
 check('advance past last question finishes the game', (await act('host', 'advance', { gameId })).data?.finished === true)
 const fin = await snapshot('bob', 'games', { code }); fin.ws.close()
 check('game status is finished', fin.records[0]?.data.status === 'finished')
 check('joining a finished game is refused', (await act('eve', 'joinGame', { code })).success === false)
+
+// 8b. solo runs
+const soloNew = await act('eve', 'createGame', { topic: 'Octopuses', questionCount: 5, secondsPerQuestion: 15, mode: 'solo' })
+check('solo run created', soloNew.success === true)
+const solo = soloNew.data ?? {}
+for (let i = 0; i < 40; i++) {
+  await sleep(500)
+  const s = await snapshot('eve', 'games', { code: solo.code }); s.ws.close()
+  if (s.records[0]?.data.status === 'lobby') break
+}
+check('nobody can join a solo run', (await act('bob', 'joinGame', { code: solo.code })).success === false)
+for (let i = 0; i < 5; i++) {
+  await act('eve', 'advance', { gameId: solo.gameId })
+  const qs = await snapshot('eve', 'questions', { gameId: solo.gameId }); qs.ws.close()
+  const q = qs.records.find((r) => r.data.index === i)?.data
+  await act('eve', 'submitAnswer', { gameId: solo.gameId, index: i, choice: q.choices.indexOf(correctText[q.prompt]) })
+  await act('eve', 'reveal', { gameId: solo.gameId })
+}
+const soloPlayers = await snapshot('eve', 'players', { gameId: solo.gameId }); soloPlayers.ws.close()
+const evePts = soloPlayers.records[0]?.data
+const soloAnswers = await snapshot('eve', 'answers', { gameId: solo.gameId }); soloAnswers.ws.close()
+const pts = soloAnswers.records.sort((a, b) => a.data.index - b.data.index).map((r) => r.data.points)
+check('streak bonus: 5th straight right answer beats 1000', evePts?.correctCount === 5 && pts[4] > 1000, JSON.stringify(pts))
+await act('eve', 'advance', { gameId: solo.gameId })
+const eveBest = await snapshot('eve', 'bests', {}); eveBest.ws.close()
+const bobBest = await snapshot('bob', 'bests', {}); bobBest.ws.close()
+check('solo finish saves a personal best', eveBest.records.some((r) => r.data.topicKey === 'octopuses' && r.data.score === evePts.score), JSON.stringify(eveBest.records.map((r) => r.data)))
+check('bests are private', bobBest.records.every((r) => r.data.userId === users.bob))
 
 // 9. integration proxy is locked
 const proxy = await fetch(`${BASE}/api/integrations/anthropic/chat-completion`, {

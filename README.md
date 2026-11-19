@@ -1,9 +1,13 @@
-# Cited — live trivia with sourced answers
+# Cited: live trivia with sourced answers
+
+**Live:** https://cited.app.space
 
 A multiplayer quiz game on [DeepSpace](https://docs.deep.space). A host types any topic. Cited pulls
 the relevant Wikipedia articles, Claude drafts multiple-choice questions, and **every question
 is checked against the article text before anyone sees it.** Friends join with a five-letter code
 and answer live. Each reveal shows the exact sentence from the article that proves the answer.
+You can also play a **solo run**, and right answers earn **footnote cards**: a six-card tarot
+deck where one card lets you steal points from another player.
 
 Most AI trivia is fun until someone asks "wait, is that actually true?" Cited is built so the
 answer to that question is always one click away, and so a question whose evidence can't be
@@ -24,6 +28,40 @@ found never gets asked.
    through `submitAnswer`. `reveal` scores the answers and publishes the answer, the quote, a link
    to the source and the answer distribution. The final screen lists every question with its receipt.
 
+## Solo runs
+
+Pick **Solo run** on `/play`. It's the same game with one player: no join code, no lobby (it
+starts as soon as the questions are verified), and nobody else can join (`joinGame` refuses).
+Consecutive right answers build a **streak bonus** (+10% per answer in a row, capped at +50%), and
+finishing saves your **best score per topic** in `bests`, readable only by you.
+
+## Footnote cards
+
+Answer correctly and you pick 1 of 3 face-down cards. The **server** deals and applies the card in
+`drawCard`; the browser only sends which slot you tapped.
+
+| Card | Effect |
+| ---- | ------ |
+| I · The Scholar | +200 points |
+| II · The Twins | your next right answer counts double |
+| III · The Jester (reversed) | steal 20% of another player's points (you pick who) |
+| IV · The Librarian | shield: blocks the next steal against you |
+| V · The Oracle | crosses out 2 wrong answers on the next question, for you only |
+| VI · Redacted | −100 points (never below 0) |
+
+Solo runs never deal the Jester or the Librarian, and the last question never deals cards that act
+on a next question. Every card play lands in a public `card_plays` feed ("Alice played The Jester on
+Bob: −410!"), and the card art is hand-built SVG of the mascot, so it scales and animates.
+
+How stealing stays fair:
+- **Points are conserved.** A steal writes one ledger row with `+x` for the thief and `−x` for the
+  victim. Scores are always recomputed as answer points plus every ledger delta, never incremented,
+  so retries and overlapping requests can't create or destroy points.
+- **Once per card.** One draw per player per question (`uniqueOn`), and the steal's ledger row has a
+  deterministic id, so a double-tapped Jester applies once.
+- **Secrets stay secret.** `draws` is `read: 'own'`: nobody can see your Oracle's crossed-out answers
+  or whether you're holding a shield until a steal bounces off it.
+
 ## Security model (the interesting part)
 
 The game's rules are enforced on the server, not in the UI:
@@ -34,6 +72,9 @@ The game's rules are enforced on the server, not in the UI:
 | `questions`     | everyone; a row appears when the question opens, and its answer fields are filled only at reveal | server only |
 | `answers`       | each player sees **only their own** (`read: 'own'`) | server only |
 | `games`, `players` | everyone                        | server only   |
+| `draws`         | each player sees **only their own** | server only   |
+| `card_plays`    | everyone (it's the feed and the score ledger) | server only |
+| `bests`         | each player sees **only their own** | server only   |
 
 - **The answer key never reaches a browser before the reveal.** RBAC filters records in the
   RecordRoom Durable Object before the WebSocket broadcast, and `question_bank` is unreadable for
@@ -89,18 +130,25 @@ take over, which covers the host leaving.
 
 ## Verification
 
+- `src/lib/cards.test.ts`: card pools (no social cards in solo, no next-question cards at the end),
+  dealing, steal maths and conservation, shields, Redacted's floor, Oracle strikes, streaks.
 - `src/lib/game-logic.test.ts`: 23 unit tests covering the grounding gate (accepts verbatim,
   tolerates curly quotes, footnote markers and whitespace; rejects paraphrases, fabrications and
   short quotes), HTML extraction, scoring, idempotent totals, choice shuffling and join codes.
 - `e2e-local/run.sh`: runs the **real worker** under `wrangler dev`, with a mock standing in for
   the DeepSpace auth and API workers. The mock signs JWTs with a throwaway key and returns canned
   Wikipedia and Claude responses, including one hallucinated quote. Then:
-  - `e2e.mjs` asserts 41 server rules over HTTP and WebSocket: the answer key is never sent to
+  - `e2e.mjs` asserts 66 server rules over HTTP and WebSocket: the answer key is never sent to
     players or host; client writes are denied; only the host can advance; answers are write-once,
     on time and from joined players only; concurrent reveals don't double-score; the proxy is
-    locked; rate limiting works; integration calls are billed with the owner JWT.
-  - `ui.mjs` plays a full game in three browsers (host, a desktop player, a phone player) and
-    saves screenshots.
+    locked; rate limiting works; integration calls are billed with the owner JWT. For cards: only
+    right answers draw, once; other players can't read your draws; a Librarian blocks a Jester and
+    moves no points; a real steal takes exactly 20% and conserves points; a double-tapped steal
+    applies once. For solo: nobody can join, the streak bonus applies, and the best score is
+    saved privately. (Locally the deck is pinned with `CARD_DECK_OVERRIDE`, which the worker only
+    honours under the all-zero test app id that can never be registered.)
+  - `ui.mjs` plays a full game in three browsers (host, a desktop player, a phone player),
+    draws a card and plays the Jester, then plays a solo run on a phone, and saves screenshots.
   - The answer-key test was **mutation-checked**: with `question_bank` made readable, it fails
     (5 rows leaked), so it isn't passing vacuously.
 - Not verifiable offline: real Wikipedia/Claude output quality, real OAuth, and the deployed
@@ -111,8 +159,6 @@ take over, which covers the host leaving.
 ```bash
 npm install                      # npm ≥ 11.6
 npx deepspace auth login         # browser sign-in (GitHub/Google)
-npx deepspace app init           # registers the app id (the committed wrangler.toml has the placeholder)
-git add wrangler.toml && git commit -m "Register app id"
 npx deepspace dev start          # local dev against the real platform
 npx deepspace deploy             # → https://cited.app.space (or the name you choose)
 bash e2e-local/run.sh            # offline rules + UI check (no login needed)

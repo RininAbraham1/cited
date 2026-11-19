@@ -109,6 +109,9 @@ export interface Env extends DOBindings<typeof __DO_MANIFEST__> {
   APP_NAME: string
   /** Immutable record-scope and platform identity. */
   DEEPSPACE_APP_ID: string
+  /** Local e2e only: fixed 3-card hand ("jester,librarian,scholar"). Ignored
+   *  unless the app id is the unregistrable all-zero test id. */
+  CARD_DECK_OVERRIDE?: string
   OWNER_USER_ID: string
   /**
    * Long-lived owner JWT used for developer-billed server calls. User-billed

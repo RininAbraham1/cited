@@ -28,7 +28,6 @@ export function Mascot({
   /** Accessible name; omit for a decorative mascot. */
   label?: string
 }) {
-  const squint = mood === 'happy' || mood === 'cheer'
   return (
     <svg
       viewBox="0 0 100 100"
@@ -40,6 +39,15 @@ export function Mascot({
       aria-label={label}
       aria-hidden={label ? undefined : true}
     >
+      <MascotBody mood={mood} color={color} />
+    </svg>
+  )
+}
+
+/** The mascot drawing alone (100×100 units), for composing into other SVGs. */
+export function MascotBody({ mood = 'idle', color = 'var(--hl-yellow)' }: { mood?: Mood; color?: string }) {
+  const squint = mood === 'happy' || mood === 'cheer'
+  return (
       <g className="m-body">
         <g className="m-arms" strokeLinecap="round">
           {[0, 60, 120].map((deg) => (
@@ -97,7 +105,6 @@ export function Mascot({
           </g>
         )}
       </g>
-    </svg>
   )
 }
 

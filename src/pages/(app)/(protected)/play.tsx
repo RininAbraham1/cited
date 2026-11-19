@@ -24,6 +24,7 @@ export default function PlayPage() {
   const [questionCount, setQuestionCount] = useState<number>(8)
   const [seconds, setSeconds] = useState<number>(20)
   const [creating, setCreating] = useState(false)
+  const [mode, setMode] = useState<'party' | 'solo'>('party')
 
   const [code, setCode] = useState('')
   const [joining, setJoining] = useState(false)
@@ -34,6 +35,9 @@ export default function PlayPage() {
     orderDir: 'desc',
     limit: 5,
   })
+  const { records: bests } = useQuery<{ topic: string; score: number; gameId: string }>('bests', {
+    orderBy: 'score', orderDir: 'desc', limit: 5,
+  })
 
   async function create(e: FormEvent) {
     e.preventDefault()
@@ -43,6 +47,7 @@ export default function PlayPage() {
       topic,
       questionCount,
       secondsPerQuestion: seconds,
+      mode,
     })
     setCreating(false)
     if (!r.success) return error('Couldn’t start a game', r.error)
@@ -71,6 +76,26 @@ export default function PlayPage() {
         </p>
 
         <form onSubmit={create} className="sheet mt-7 space-y-5 p-5 md:p-6">
+          <div role="radiogroup" aria-label="Game mode" className="grid grid-cols-2 gap-2 rounded-2xl border-[3px] border-[var(--ink)] bg-white p-1.5">
+            {([
+              ['party', 'With friends', 'Share a code, play live'],
+              ['solo', 'Solo run', 'Just you, chase streaks'],
+            ] as const).map(([id, label, sub]) => (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={mode === id}
+                data-testid={`mode-${id}`}
+                onClick={() => setMode(id)}
+                className={cn('rounded-xl px-3 py-2 text-left transition-colors', mode === id ? 'bg-ink text-paper' : 'hover:bg-[var(--hl-yellow)]/50')}
+              >
+                <span className="font-display block text-xl leading-none">{label}</span>
+                <span className="text-xs font-bold opacity-70">{sub}</span>
+              </button>
+            ))}
+          </div>
+
           <div>
             <label htmlFor="topic" className="font-display text-xl">Topic</label>
             <Input
@@ -108,11 +133,11 @@ export default function PlayPage() {
           </div>
 
           <Button type="submit" size="lg" className="font-display h-14 w-full rounded-2xl bg-hl-1 text-2xl font-normal" disabled={creating || topic.trim().length < 2} data-testid="create-game">
-            {creating ? 'Starting…' : 'Create game'}
+            {creating ? 'Starting…' : mode === 'solo' ? 'Start solo run' : 'Create game'}
             {!creating && <ArrowRight className="size-6" strokeWidth={3} aria-hidden />}
           </Button>
           <p className="text-xs font-semibold opacity-60">
-            Writing and fact-checking the questions takes about half a minute. Your friends can join while it runs.
+            Writing and fact-checking the questions takes about half a minute.{mode === 'party' ? ' Your friends can join while it runs.' : ' Right answers earn a footnote card.'}
           </p>
         </form>
       </section>
@@ -137,6 +162,20 @@ export default function PlayPage() {
             {joining ? 'Joining…' : 'Join'}
           </Button>
         </form>
+
+        {bests.length > 0 && (
+          <div>
+            <h2 className="font-display text-2xl">Your best solo runs</h2>
+            <ul className="sheet mt-2 divide-y-2 divide-[var(--ink)]/15 overflow-hidden">
+              {bests.map((b) => (
+                <li key={b.recordId} className="flex items-center gap-3 px-4 py-2.5 font-bold">
+                  <span className="min-w-0 flex-1 truncate">{b.data.topic}</span>
+                  <span className="font-code">{b.data.score}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {myGames.length > 0 && (
           <div>

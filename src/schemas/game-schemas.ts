@@ -14,6 +14,11 @@
  *                    that question, and gets `answerIndex`/`quote` filled in
  *                    only at reveal.
  *   answers        — each player sees only their own (`read: 'own'`), so nobody can copy a friend mid-question.
+ *   draws          — each player's footnote cards, also `read: 'own'`: the
+ *                    Oracle's crossed-out answers and a waiting shield stay secret.
+ *   card_plays     — the public feed AND the score ledger. Scores are always
+ *                    recomputed as answer points + card deltas, never incremented.
+ *   bests          — a player's best solo score per topic (`read: 'own'`).
  */
 
 import type { CollectionSchema } from 'deepspace/schema'
@@ -49,6 +54,8 @@ export const gamesSchema: CollectionSchema = {
     { name: 'endsAt', storage: 'number', interpretation: 'plain' },
     /** [{ title, url }] — the Wikipedia articles questions were drawn from. */
     { name: 'sources', storage: 'text', interpretation: { kind: 'json' } },
+    { name: 'mode', storage: 'text', interpretation: { kind: 'select', options: ['party', 'solo'] } },
+    { name: 'bestBefore', storage: 'number', interpretation: 'plain' },
   ],
   permissions: {
     viewer: { read: true, ...SERVER_ONLY_WRITES },
@@ -144,10 +151,72 @@ export const answersSchema: CollectionSchema = {
   },
 }
 
+const OWN_READ = {
+  viewer: { read: false, ...SERVER_ONLY_WRITES },
+  member: { read: 'own', ...SERVER_ONLY_WRITES },
+  admin: { read: 'own', ...SERVER_ONLY_WRITES },
+} as const
+
+export const drawsSchema: CollectionSchema = {
+  name: 'draws',
+  columns: [
+    { name: 'gameId', storage: 'text', interpretation: 'plain', required: true },
+    { name: 'index', storage: 'number', interpretation: 'plain', required: true },
+    { name: 'userId', storage: 'text', interpretation: 'plain', required: true },
+    { name: 'card', storage: 'text', interpretation: 'plain', required: true },
+    { name: 'offered', storage: 'text', interpretation: { kind: 'json' } },
+    { name: 'slot', storage: 'number', interpretation: 'plain' },
+    { name: 'status', storage: 'text', interpretation: { kind: 'select', options: ['done', 'pending', 'active', 'used'] } },
+    { name: 'appliesTo', storage: 'number', interpretation: 'plain' },
+    { name: 'strike', storage: 'text', interpretation: { kind: 'json' } },
+  ],
+  // One draw per player per question. drawCard creates it as the caller, so
+  // createdBy (what 'own' checks) is always the drawing player.
+  uniqueOn: ['gameId', 'index', 'userId'],
+  permissions: OWN_READ,
+}
+
+export const cardPlaysSchema: CollectionSchema = {
+  name: 'card_plays',
+  columns: [
+    { name: 'gameId', storage: 'text', interpretation: 'plain', required: true },
+    { name: 'index', storage: 'number', interpretation: 'plain', required: true },
+    { name: 'card', storage: 'text', interpretation: 'plain', required: true },
+    { name: 'actorId', storage: 'text', interpretation: 'plain', required: true },
+    { name: 'actorName', storage: 'text', interpretation: 'plain' },
+    { name: 'targetId', storage: 'text', interpretation: 'plain' },
+    { name: 'targetName', storage: 'text', interpretation: 'plain' },
+    { name: 'actorDelta', storage: 'number', interpretation: 'plain', default: 0 },
+    { name: 'targetDelta', storage: 'number', interpretation: 'plain', default: 0 },
+    { name: 'blocked', storage: 'number', interpretation: { kind: 'boolean' } },
+  ],
+  permissions: {
+    viewer: { read: true, ...SERVER_ONLY_WRITES },
+    member: { read: true, ...SERVER_ONLY_WRITES },
+    admin: { read: true, ...SERVER_ONLY_WRITES },
+  },
+}
+
+export const bestsSchema: CollectionSchema = {
+  name: 'bests',
+  columns: [
+    { name: 'userId', storage: 'text', interpretation: 'plain', required: true },
+    { name: 'topicKey', storage: 'text', interpretation: 'plain', required: true },
+    { name: 'topic', storage: 'text', interpretation: 'plain' },
+    { name: 'score', storage: 'number', interpretation: 'plain', default: 0 },
+    { name: 'gameId', storage: 'text', interpretation: 'plain' },
+  ],
+  uniqueOn: ['userId', 'topicKey'],
+  permissions: OWN_READ,
+}
+
 export const gameSchemas: CollectionSchema[] = [
   gamesSchema,
   playersSchema,
   questionBankSchema,
   questionsSchema,
   answersSchema,
+  drawsSchema,
+  cardPlaysSchema,
+  bestsSchema,
 ]

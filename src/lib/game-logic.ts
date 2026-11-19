@@ -18,6 +18,7 @@ export const LIMITS = {
 }
 
 export type GameStatus = 'generating' | 'lobby' | 'question' | 'reveal' | 'finished' | 'failed'
+export type GameMode = 'party' | 'solo'
 
 export interface Game {
   code: string
@@ -32,6 +33,10 @@ export interface Game {
   currentIndex: number
   endsAt?: number
   sources?: Array<{ title: string; url: string }>
+  /** 'solo' runs have one player and skip the lobby. Missing = 'party'. */
+  mode?: GameMode
+  /** Solo only: the player's best score on this topic before this run. */
+  bestBefore?: number
 }
 
 export interface Player {
@@ -307,4 +312,156 @@ export function shuffleChoices(
 
 export function wikipediaUrl(title: string): string {
   return `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`
+}
+
+// ---------------------------------------------------------------------------
+// Streaks
+// ---------------------------------------------------------------------------
+
+/** +10% per consecutive correct answer after the first, capped at +50%. */
+export function streakMultiplier(streak: number): number {
+  return 1 + Math.min(Math.max(streak - 1, 0), 5) * 0.1
+}
+
+/**
+ * Length of the run of correct answers ending at `index` for one player.
+ * A missed (unanswered) question breaks the streak.
+ */
+export function streakAt(correctByIndex: Map<number, boolean>, index: number): number {
+  let n = 0
+  for (let i = index; i >= 0 && correctByIndex.get(i) === true; i--) n++
+  return n
+}
+
+// ---------------------------------------------------------------------------
+// Footnote cards
+// ---------------------------------------------------------------------------
+
+export type CardId = 'scholar' | 'twins' | 'jester' | 'librarian' | 'oracle' | 'redacted'
+
+export interface CardDef {
+  id: CardId
+  numeral: string
+  name: string
+  /** One line shown on the card face. */
+  effect: string
+  /** Needs another player (never dealt in solo). */
+  social?: boolean
+  /** Acts on the NEXT question (never dealt on the last one). */
+  nextQuestion?: boolean
+}
+
+export const CARDS: Record<CardId, CardDef> = {
+  scholar: { id: 'scholar', numeral: 'I', name: 'The Scholar', effect: '+200 points' },
+  twins: { id: 'twins', numeral: 'II', name: 'The Twins', effect: 'Next right answer counts double', nextQuestion: true },
+  jester: { id: 'jester', numeral: 'III', name: 'The Jester', effect: 'Reversed: steal 20% from anyone', social: true },
+  librarian: { id: 'librarian', numeral: 'IV', name: 'The Librarian', effect: 'Shield: blocks the next steal', social: true },
+  oracle: { id: 'oracle', numeral: 'V', name: 'The Oracle', effect: 'Crosses out 2 wrong answers next question', nextQuestion: true },
+  redacted: { id: 'redacted', numeral: 'VI', name: 'Redacted', effect: '−100 points. Oops.' },
+}
+
+export const CARD_WEIGHTS: Record<CardId, number> = {
+  scholar: 24, twins: 18, jester: 20, librarian: 14, oracle: 14, redacted: 10,
+}
+
+export const CARD_LIMITS = {
+  scholarBonus: 200,
+  redactedPenalty: 100,
+  stealShare: 0.2,
+  handSize: 3,
+}
+
+/** Which cards can be dealt right now. */
+export function cardPool(opts: { solo: boolean; lastQuestion: boolean }): CardId[] {
+  return (Object.keys(CARDS) as CardId[]).filter((id) => {
+    const c = CARDS[id]
+    if (opts.solo && c.social) return false
+    if (opts.lastQuestion && c.nextQuestion) return false
+    return true
+  })
+}
+
+/** Deal a face-down hand (weighted, repeats allowed). */
+export function dealHand(
+  opts: { solo: boolean; lastQuestion: boolean },
+  random: () => number = Math.random,
+): CardId[] {
+  const pool = cardPool(opts)
+  const total = pool.reduce((s, id) => s + CARD_WEIGHTS[id], 0)
+  const hand: CardId[] = []
+  for (let i = 0; i < CARD_LIMITS.handSize; i++) {
+    let r = random() * total
+    let pick = pool[pool.length - 1]
+    for (const id of pool) {
+      r -= CARD_WEIGHTS[id]
+      if (r < 0) { pick = id; break }
+    }
+    hand.push(pick)
+  }
+  return hand
+}
+
+/**
+ * Point changes from a steal. Always conserves points: whatever the victim
+ * loses, the thief gains. A shield blocks it completely.
+ */
+export function stealOutcome(victimScore: number, shielded: boolean): { thief: number; victim: number } {
+  if (shielded) return { thief: 0, victim: 0 }
+  const amount = Math.floor((Math.max(0, victimScore) * CARD_LIMITS.stealShare) / 10) * 10
+  return { thief: amount, victim: -amount }
+}
+
+/** Redacted never takes a score below zero. */
+export function redactedPenalty(currentScore: number): number {
+  return -Math.min(CARD_LIMITS.redactedPenalty, Math.max(0, currentScore))
+}
+
+/** Two distinct wrong choices for the Oracle to cross out. */
+export function oracleStrikes(answerIndex: number, choiceCount: number, random: () => number = Math.random): number[] {
+  const wrong = Array.from({ length: choiceCount }, (_, i) => i).filter((i) => i !== answerIndex)
+  for (let i = wrong.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1))
+    ;[wrong[i], wrong[j]] = [wrong[j], wrong[i]]
+  }
+  return wrong.slice(0, 2).sort((a, b) => a - b)
+}
+
+/** One public card play: drives the feed AND the score ledger. */
+export interface CardPlay {
+  gameId: string
+  index: number
+  card: CardId
+  actorId: string
+  actorName?: string
+  targetId?: string
+  targetName?: string
+  actorDelta: number
+  targetDelta: number
+  blocked?: boolean
+}
+
+/** A player's private draw for one question. */
+export interface Draw {
+  gameId: string
+  index: number
+  userId: string
+  card: CardId
+  offered: CardId[]
+  slot: number
+  /** done: applied · pending: Jester needs a target · active: waiting to apply · used: spent */
+  status: 'done' | 'pending' | 'active' | 'used'
+  /** Question index Twins/Oracle apply to. */
+  appliesTo?: number
+  /** Oracle: choices crossed out on `appliesTo`. */
+  strike?: number[]
+}
+
+/** Score = answer points + every card delta that touches the player, never below 0. */
+export function scoreWithCards(answerScore: number, plays: Pick<CardPlay, 'actorId' | 'targetId' | 'actorDelta' | 'targetDelta'>[], userId: string): number {
+  let s = answerScore
+  for (const p of plays) {
+    if (p.actorId === userId) s += p.actorDelta ?? 0
+    if (p.targetId === userId) s += p.targetDelta ?? 0
+  }
+  return Math.max(0, s)
 }
