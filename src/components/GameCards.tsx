@@ -7,7 +7,7 @@ import { Loader2 } from 'lucide-react'
 import { useToast } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { callAction } from '@/lib/call-action'
-import { CARDS, streakMultiplier, type CardId, type CardPlay, type Draw, type Player } from '@/lib/game-logic'
+import { CARDS, cardEffect, streakMultiplier, type CardId, type CardPlay, type Draw, type Player } from '@/lib/game-logic'
 import { FlipCard } from './TarotCard'
 import { Mascot } from './Mascot'
 
@@ -15,13 +15,14 @@ type Rec<T> = { recordId: string; data: T }
 
 /** After a right answer: pick 1 of 3 face-down cards, then see what you got. */
 export function CardPicker({
-  gameId, index, draw, players, meId,
+  gameId, index, draw, players, meId, lastQuestion,
 }: {
   gameId: string
   index: number
   draw?: Draw
   players: Rec<Player>[]
   meId: string | null
+  lastQuestion: boolean
 }) {
   const { error } = useToast()
   const [busy, setBusy] = useState<number | null>(null)
@@ -47,12 +48,11 @@ export function CardPicker({
 
   return (
     <section id="card-picker" className="sheet mt-6 scroll-mt-24 p-5" data-testid="card-picker">
-      <div className="flex items-center gap-3">
-        <Mascot mood={shown ? (shown.card === 'redacted' ? 'sad' : 'happy') : 'wow'} size={52} key={shown?.card ?? 'pick'} />
+      <div>
         <div>
           <h3 className="font-display text-2xl leading-none">{shown ? CARDS[shown.card].name : 'You earned a card!'}</h3>
           <p className="mt-1 text-sm font-bold opacity-70">
-            {shown ? CARDS[shown.card].effect : 'Pick one. Choose before the next question opens.'}
+            {shown ? cardEffect(shown.card, lastQuestion) : 'Pick one. Choose before the next question opens.'}
           </p>
         </div>
       </div>
@@ -80,7 +80,11 @@ export function CardPicker({
       {shown?.card === 'jester' && (draw?.status ?? 'pending') === 'pending' && (
         <JesterPrompt gameId={gameId} index={index} players={players} meId={meId} />
       )}
-      {shown && showRest && <p className="mt-3 text-center text-xs font-bold opacity-50">The other two cards were dealt face down, so it was luck either way.</p>}
+      {shown && showRest && shown.offered && (
+        <p className="mt-3 text-center text-sm font-bold opacity-60">
+          You could have had: {shown.offered.filter((_, i) => i !== shown.slot).map((c) => CARDS[c].name).join(' or ')}
+        </p>
+      )}
     </section>
   )
 }
@@ -131,7 +135,7 @@ export function describePlay(p: CardPlay): string {
     case 'scholar': return `${who} drew The Scholar: +${p.actorDelta}`
     case 'redacted': return `${who} drew Redacted: ${p.actorDelta}`
     case 'librarian': return `${who} is hiding behind The Librarian`
-    case 'twins': return `${who} drew The Twins: next answer doubles`
+    case 'twins': return p.actorDelta ? `${who} drew The Twins: +${p.actorDelta} (doubled!)` : `${who} drew The Twins: next answer doubles`
     case 'oracle': return `${who} drew The Oracle and sees the future`
   }
 }

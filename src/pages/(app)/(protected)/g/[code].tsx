@@ -16,11 +16,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth, usePresenceRoom, useQuery } from 'deepspace'
-import { Check, Copy, ExternalLink, Loader2, Volume2, VolumeX, X } from 'lucide-react'
+import { Bell, BellOff, Check, Copy, ExternalLink, Loader2, Volume2, VolumeX, X } from 'lucide-react'
 import { Button, useToast } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { Mascot, MascotSays, type Mood } from '@/components/Mascot'
 import { callAction } from '@/lib/call-action'
+import { isMuted, playCorrect, playWrong, setMuted, unlock } from '@/lib/sfx'
 import { LIMITS, streakAt, type Answer, type CardPlay, type Draw, type Game, type Player, type PublicQuestion } from '@/lib/game-logic'
 import { CardFeed, CardPicker, FeedBanner, JesterPrompt, SoloPanel } from '@/components/GameCards'
 
@@ -45,6 +46,41 @@ export default function GameRoomPage() {
     )
   }
   return <Room gameId={game.recordId} game={game.data} />
+}
+
+/** What the mascot is feeling, and what it says, for my view of the room. */
+function reactionFor(game: Game, myAnswer: Answer | undefined, remainingMs: number, isPlayer: boolean, isHost: boolean): { mood: Mood; line: string } {
+  switch (game.status) {
+    case 'generating': return { mood: 'think', line: 'Reading the articles…' }
+    case 'failed': return { mood: 'sad', line: 'That topic was too thin. Try another?' }
+    case 'lobby':
+      if (game.mode === 'solo') return { mood: 'happy', line: 'Here we go!' }
+      return { mood: 'idle', line: isHost ? 'Start when everyone’s in!' : 'Waiting for the host…' }
+    case 'finished': return { mood: 'cheer', line: 'GG! What a game.' }
+    case 'question':
+      if (!isPlayer) return { mood: 'idle', line: 'Watching…' }
+      if (myAnswer) return { mood: 'idle', line: 'Locked in. Fingers crossed!' }
+      if (remainingMs <= 0) return { mood: 'wow', line: 'Time!' }
+      return { mood: 'think', line: remainingMs < 5000 ? 'Quick, quick!' : 'Hmm… think fast!' }
+    case 'reveal':
+      if (!isPlayer) return { mood: 'idle', line: 'And the answer is…' }
+      if (!myAnswer) return { mood: 'wow', line: 'Too slow!' }
+      if (myAnswer.correct == null) return { mood: 'think', line: 'Checking…' }
+      return myAnswer.correct ? { mood: 'happy', line: 'Nailed it!' } : { mood: 'sad', line: 'Oof. Check the receipt.' }
+  }
+}
+
+/** Big mascot that reacts to the game, pinned in the left margin on wide screens. */
+function ReactionMascot({ mood, line }: { mood: Mood; line: string }) {
+  return (
+    <div className="flex flex-col items-center gap-2" data-testid="reaction-mascot" aria-live="polite">
+      <Mascot mood={mood} size={168} key={mood} />
+      <p className="relative rounded-2xl border-[3px] border-[var(--ink)] bg-paper px-3 py-2 text-center font-black leading-snug text-ink shadow-[4px_4px_0_0_var(--ink)]">
+        <span className="absolute -top-[10px] left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 border-l-[3px] border-t-[3px] border-[var(--ink)] bg-paper" aria-hidden />
+        <span className="relative">{line}</span>
+      </p>
+    </div>
+  )
 }
 
 function Room({ gameId, game }: { gameId: string; game: Game }) {
@@ -104,6 +140,7 @@ function Room({ gameId, game }: { gameId: string; game: Game }) {
 
   const now = useNow(game.status === 'question' ? 200 : 1000)
   const remainingMs = Math.max(0, (game.endsAt ?? 0) - now)
+  const reaction = reactionFor(game, myAnswer, remainingMs, !!me, isHost)
 
   // Reveal when time runs out. The host's tab does it right at the deadline;
   // everyone else's tab is a fallback a few seconds later (the server only
@@ -122,7 +159,11 @@ function Room({ gameId, game }: { gameId: string; game: Game }) {
   }, [now, game.status, game.currentIndex, game.endsAt, isHost, allAnswered, gameId])
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 md:py-10">
+    <div className="mx-auto max-w-5xl px-5 py-8 md:py-10 lg:grid lg:max-w-7xl lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-10">
+      <div className="hidden lg:block">
+        <div className="sticky top-8 pt-2"><ReactionMascot {...reaction} /></div>
+      </div>
+      <div className="min-w-0">
       <Header game={game} isHost={isHost} gameId={gameId} solo={solo} />
 
       <div className="mt-8 grid gap-8 md:grid-cols-[1fr_17rem]">
@@ -150,6 +191,7 @@ function Room({ gameId, game }: { gameId: string; game: Game }) {
               draws={myDraws.map((d) => d.data)}
               players={players}
               meId={userId}
+              reaction={reaction}
             />
           )}
           {game.status === 'finished' && <Finished game={game} players={players} questions={questions} solo={solo} meId={userId} />}
@@ -161,6 +203,7 @@ function Room({ gameId, game }: { gameId: string; game: Game }) {
             : <Scoreboard players={players} online={online} meId={userId} hostId={game.hostId} highlightIndex={game.status === 'question' ? game.currentIndex : null} />}
           {!solo && <CardFeed plays={plays} />}
         </aside>
+      </div>
       </div>
     </div>
   )
@@ -186,6 +229,7 @@ function Header({ game, isHost, gameId, solo }: { game: Game; isHost: boolean; g
         <h1 className="title-pop mt-3 truncate pb-1 text-5xl leading-none md:text-6xl">{game.topic}</h1>
       </div>
       <div className="flex flex-wrap items-center gap-3">
+        <SoundToggle />
         {isHost && <HostControls game={game} gameId={gameId} solo={solo} />}
         {!solo && <button
           onClick={() => { void navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500) }}
@@ -200,6 +244,21 @@ function Header({ game, isHost, gameId, solo }: { game: Game; isHost: boolean; g
         </button>}
       </div>
     </header>
+  )
+}
+
+function SoundToggle() {
+  const [muted, setMutedState] = useState(() => isMuted())
+  return (
+    <button
+      onClick={() => { const m = !muted; setMuted(m); setMutedState(m); if (!m) { unlock(); playCorrect() } }}
+      aria-pressed={!muted}
+      title={muted ? 'Turn sound effects on' : 'Mute sound effects'}
+      data-testid="sound-toggle"
+      className={cn('pop grid h-12 w-12 place-items-center rounded-2xl text-ink', muted ? 'bg-paper' : 'bg-hl-3')}
+    >
+      {muted ? <BellOff className="h-5 w-5" strokeWidth={2.6} aria-label="Sound effects off" /> : <Bell className="h-5 w-5" strokeWidth={2.6} aria-label="Sound effects on" />}
+    </button>
   )
 }
 
@@ -258,7 +317,7 @@ function Generating({ stage, topic }: { stage?: string; topic: string }) {
   return (
     <div className="sheet relative p-6 md:p-8">
       <div className="flex flex-wrap items-center gap-5">
-        <Mascot mood="think" size={110} />
+        <Mascot mood="think" size={110} className="lg:hidden" />
         <div className="min-w-0 flex-1">
           <h2 className="font-display text-4xl leading-none">Reading up on “{topic}”</h2>
           <p className="sticker mt-3 flex w-fit items-center gap-2 bg-hl-0 px-3 py-1 font-black" aria-live="polite">
@@ -277,7 +336,7 @@ function Generating({ stage, topic }: { stage?: string; topic: string }) {
 function Failed({ message }: { message?: string }) {
   return (
     <div className="sheet p-6 md:p-8">
-      <Mascot mood="sad" size={96} />
+      <Mascot mood="sad" size={96} className="lg:hidden" />
       <h2 className="font-display mt-3 text-4xl leading-none">This one didn’t pan out</h2>
       <p className="mt-2 font-semibold opacity-70">{message || 'Question generation failed.'}</p>
       <Link to="/play" className="mt-5 inline-block"><Button size="lg" className="font-display bg-hl-1 text-xl font-normal">Try another topic</Button></Link>
@@ -288,8 +347,8 @@ function Failed({ message }: { message?: string }) {
 function Lobby({ game, isHost, playerCount }: { game: Game; isHost: boolean; gameId: string; playerCount: number }) {
   return (
     <div className="sheet p-6 md:p-8">
-      <MascotSays mood="idle" size={72}>{isHost ? 'Questions ready. All fact-checked!' : 'Grab a snack, we start soon.'}</MascotSays>
-      <h2 className="font-display mt-6 text-4xl leading-none md:text-5xl">
+      <div className="lg:hidden"><MascotSays mood="idle" size={72}>{isHost ? 'Questions ready. All fact-checked!' : 'Grab a snack, we start soon.'}</MascotSays></div>
+      <h2 className="font-display mt-6 text-4xl leading-none md:text-5xl lg:mt-0">
         {isHost ? 'Start when everyone’s in.' : 'Waiting for the host to start…'}
       </h2>
       <div className="mt-4 flex flex-wrap gap-2 text-sm font-black">
@@ -319,7 +378,7 @@ function Lobby({ game, isHost, playerCount }: { game: Game; isHost: boolean; gam
 }
 
 function QuestionCard({
-  gameId, game, question, myAnswer, remainingMs, answeredCount, playerCount, isPlayer, solo, streak, draws, players, meId,
+  gameId, game, question, myAnswer, remainingMs, answeredCount, playerCount, isPlayer, solo, streak, draws, players, meId, reaction,
 }: {
   gameId: string
   game: Game
@@ -334,6 +393,7 @@ function QuestionCard({
   draws: Draw[]
   players: Rec<Player>[]
   meId: string | null
+  reaction: { mood: Mood; line: string }
 }) {
   const { error } = useToast()
   const [pending, setPending] = useState<number | null>(null)
@@ -351,6 +411,7 @@ function QuestionCard({
 
   async function answer(choice: number) {
     if (locked != null || closed || !isPlayer || struck.has(choice)) return
+    unlock()
     setPending(choice)
     const r = await callAction('submitAnswer', { gameId, index: question.index, choice })
     if (!r.success) {
@@ -359,15 +420,24 @@ function QuestionCard({
     }
   }
 
-  let mood: Mood = 'think'
-  if (revealed) mood = myAnswer?.correct ? 'happy' : myAnswer ? 'sad' : 'wow'
-  else if (locked != null) mood = 'idle'
-  else if (closed) mood = 'wow'
+  // One soft sound when my result for this question comes in.
+  const sounded = useRef(false)
+  useEffect(() => {
+    if (!revealed || sounded.current || myAnswer?.correct == null) return
+    sounded.current = true
+    if (myAnswer.correct) playCorrect()
+    else playWrong()
+  }, [revealed, myAnswer?.correct])
+
+  // A right answer earns a card: the picker takes the question's place until you pick.
+  const earnedCard = revealed && !!myAnswer?.correct && isPlayer
+  const picking = earnedCard && !myDraw
 
   return (
     <div>
-      {/* Timer */}
+      {/* Timer (on narrow screens the reacting mascot sits here) */}
       <div className="flex items-center gap-3">
+        <Mascot mood={reaction.mood} size={64} key={reaction.mood} className="-my-2 lg:hidden" label={reaction.line} />
         <span
           className={cn(
             'sticker font-display grid h-16 w-16 shrink-0 place-items-center rounded-full text-3xl',
@@ -399,8 +469,17 @@ function QuestionCard({
         </div>
       )}
 
-      <div className={cn('sheet relative mt-6 p-5 pr-6 md:mt-10 md:p-6', !revealed && 'md:pl-24')}>
-        {!revealed && <Mascot mood={mood} size={84} key={mood} className="absolute -left-5 -top-7 hidden md:block" />}
+      {earnedCard && (
+        <>
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <p className="stamp sticker font-display bg-hl-2 px-4 py-1.5 text-3xl leading-none">Correct! +{myAnswer?.points}</p>
+          </div>
+          <CardPicker gameId={gameId} index={question.index} draw={myDraw} players={players} meId={meId} lastQuestion={question.index + 1 >= game.questionCount} />
+        </>
+      )}
+
+      {!picking && (<>
+      <div className="sheet relative mt-6 p-5 pr-6 md:p-6">
         <h2 className="font-display text-[1.75rem] leading-tight md:text-4xl" data-testid="question-prompt">
           {question.prompt}
         </h2>
@@ -447,6 +526,7 @@ function QuestionCard({
           )
         })}
       </ol>
+      </>)}
 
       {!revealed && (
         <p className="mt-5 text-lg font-black text-muted-foreground" aria-live="polite">
@@ -455,34 +535,21 @@ function QuestionCard({
       )}
 
       {revealed && (
-        <div className="mt-8 grid items-start gap-6 md:grid-cols-[auto_1fr]">
-          <div className="flex justify-center md:block md:pt-4">
-            {myAnswer?.points != null ? (
-              <div className="flex flex-col items-center md:items-start">
-                <Mascot mood={myAnswer.correct ? 'happy' : 'sad'} size={104} className="-mb-2" label={myAnswer.correct ? 'Mascot bouncing for joy' : 'Sad mascot'} />
-                <p className={cn('stamp sticker font-display px-5 py-2 text-center leading-none', myAnswer.correct ? 'bg-hl-2' : 'bg-hl-1')}>
-                  <span className="block text-4xl">{myAnswer.correct ? 'Correct!' : 'Nope!'}</span>
-                  <span className="block text-2xl">{myAnswer.correct ? `+${myAnswer.points}` : '0 pts'}</span>
+        <div className={cn('mt-8 grid items-start gap-6', !earnedCard && 'md:grid-cols-[auto_1fr]')}>
+          {!earnedCard && (
+            <div className="flex justify-center md:block md:pt-4">
+              {myAnswer ? (myAnswer.points != null && (
+                <p className="stamp sticker font-display bg-hl-1 px-5 py-2 text-center leading-none">
+                  <span className="block text-4xl">Nope!</span>
+                  <span className="block text-2xl">0 pts</span>
                 </p>
-                {myAnswer.correct && isPlayer && !myDraw && (
-                  <a href="#card-picker" className="font-display mt-4 block text-lg text-paper underline decoration-2 underline-offset-4">
-                    ✱ You earned a card ↓
-                  </a>
-                )}
-              </div>
-            ) : isPlayer ? (
-              <div className="flex flex-col items-center md:items-start">
-                <Mascot mood="wow" size={104} className="-mb-2" />
+              )) : isPlayer ? (
                 <p className="stamp sticker font-display bg-paper px-5 py-2 text-3xl leading-none">Too slow!</p>
-              </div>
-            ) : null}
-          </div>
+              ) : null}
+            </div>
+          )}
           <Citation question={question} />
         </div>
-      )}
-
-      {revealed && myAnswer?.correct && isPlayer && (
-        <CardPicker gameId={gameId} index={question.index} draw={myDraw} players={players} meId={meId} />
       )}
     </div>
   )
@@ -527,7 +594,7 @@ function Finished({ game, players, questions, solo, meId }: { game: Game; player
   return (
     <div>
       <div className="flex items-center gap-3">
-        <Mascot mood="cheer" size={96} />
+        <Mascot mood="cheer" size={96} className="lg:hidden" />
         <h2 className="title-pop text-5xl leading-none md:text-6xl">Final scores</h2>
       </div>
 

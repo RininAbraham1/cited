@@ -43,14 +43,14 @@ Answer correctly and you pick 1 of 3 face-down cards. The **server** deals and a
 | Card | Effect |
 | ---- | ------ |
 | I · The Scholar | +200 points |
-| II · The Twins | your next right answer counts double |
+| II · The Twins | your next right answer counts double (on the last question: this answer counts double) |
 | III · The Jester (reversed) | steal 20% of another player's points (you pick who) |
 | IV · The Librarian | shield: blocks the next steal against you |
 | V · The Oracle | crosses out 2 wrong answers on the next question, for you only |
 | VI · Redacted | −100 points (never below 0) |
 
-Solo runs never deal the Jester or the Librarian, and the last question never deals cards that act
-on a next question. Every card play lands in a public `card_plays` feed ("Alice played The Jester on
+A hand is always 3 **different** cards (weighted sampling without replacement). Solo runs never
+deal the Jester or the Librarian, and the last question never deals the Oracle. Every card play lands in a public `card_plays` feed ("Alice played The Jester on
 Bob: −410!"), and the card art is hand-built SVG of the mascot, so it scales and animates.
 
 How stealing stays fair:

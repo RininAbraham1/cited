@@ -12,18 +12,27 @@ describe('card pool', () => {
     expect(pool).not.toContain('librarian')
     expect(pool).toContain('oracle')
   })
-  it('never deals next-question cards on the last question', () => {
+  it('never deals the Oracle on the last question (nothing left to cross out)', () => {
     const pool = cardPool({ solo: false, lastQuestion: true })
-    expect(pool).not.toContain('twins')
     expect(pool).not.toContain('oracle')
+    expect(pool).toContain('twins')
     expect(pool).toContain('jester')
   })
-  it('deals 3 cards from the pool', () => {
-    for (let t = 0; t < 200; t++) {
-      const hand = dealHand({ solo: true, lastQuestion: true })
-      expect(hand).toHaveLength(3)
-      for (const c of hand) expect(['scholar', 'redacted']).toContain(c)
+  it('always deals 3 DIFFERENT cards, in every situation', () => {
+    for (const solo of [true, false]) {
+      for (const lastQuestion of [true, false]) {
+        expect(cardPool({ solo, lastQuestion }).length).toBeGreaterThanOrEqual(3)
+        for (let t = 0; t < 500; t++) {
+          const hand = dealHand({ solo, lastQuestion })
+          expect(hand).toHaveLength(3)
+          expect(new Set(hand).size).toBe(3)
+          for (const c of hand) expect(cardPool({ solo, lastQuestion })).toContain(c)
+        }
+      }
     }
+  })
+  it('solo last question deals exactly Scholar, Twins and Redacted', () => {
+    expect(new Set(dealHand({ solo: true, lastQuestion: true }))).toEqual(new Set(['scholar', 'twins', 'redacted']))
   })
   it('covers every card with a full random range', () => {
     const seen = new Set(dealHand({ solo: false, lastQuestion: false }, seq(0, 0.3, 0.999)))

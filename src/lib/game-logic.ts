@@ -347,13 +347,14 @@ export interface CardDef {
   effect: string
   /** Needs another player (never dealt in solo). */
   social?: boolean
-  /** Acts on the NEXT question (never dealt on the last one). */
+  /** Only useful with a next question (never dealt on the last one). */
   nextQuestion?: boolean
 }
 
 export const CARDS: Record<CardId, CardDef> = {
   scholar: { id: 'scholar', numeral: 'I', name: 'The Scholar', effect: '+200 points' },
-  twins: { id: 'twins', numeral: 'II', name: 'The Twins', effect: 'Next right answer counts double', nextQuestion: true },
+  // On the last question there is no "next", so the Twins double the answer just given.
+  twins: { id: 'twins', numeral: 'II', name: 'The Twins', effect: 'Next right answer counts double' },
   jester: { id: 'jester', numeral: 'III', name: 'The Jester', effect: 'Reversed: steal 20% from anyone', social: true },
   librarian: { id: 'librarian', numeral: 'IV', name: 'The Librarian', effect: 'Shield: blocks the next steal', social: true },
   oracle: { id: 'oracle', numeral: 'V', name: 'The Oracle', effect: 'Crosses out 2 wrong answers next question', nextQuestion: true },
@@ -381,22 +382,31 @@ export function cardPool(opts: { solo: boolean; lastQuestion: boolean }): CardId
   })
 }
 
-/** Deal a face-down hand (weighted, repeats allowed). */
+/** Twins effect text depends on whether a next question exists. */
+export function cardEffect(id: CardId, lastQuestion: boolean): string {
+  return id === 'twins' && lastQuestion ? 'Last question: this answer counts double' : CARDS[id].effect
+}
+
+/**
+ * Deal a face-down hand of DIFFERENT cards: weighted sampling without
+ * replacement, so rarer cards stay rarer but a hand never repeats a card.
+ * Every pool has at least 3 cards (solo, last question: Scholar, Twins, Redacted).
+ */
 export function dealHand(
   opts: { solo: boolean; lastQuestion: boolean },
   random: () => number = Math.random,
 ): CardId[] {
-  const pool = cardPool(opts)
-  const total = pool.reduce((s, id) => s + CARD_WEIGHTS[id], 0)
+  const left = cardPool(opts)
   const hand: CardId[] = []
-  for (let i = 0; i < CARD_LIMITS.handSize; i++) {
+  while (hand.length < CARD_LIMITS.handSize && left.length > 0) {
+    const total = left.reduce((s, id) => s + CARD_WEIGHTS[id], 0)
     let r = random() * total
-    let pick = pool[pool.length - 1]
-    for (const id of pool) {
-      r -= CARD_WEIGHTS[id]
-      if (r < 0) { pick = id; break }
+    let at = left.length - 1
+    for (let i = 0; i < left.length; i++) {
+      r -= CARD_WEIGHTS[left[i]]
+      if (r < 0) { at = i; break }
     }
-    hand.push(pick)
+    hand.push(left.splice(at, 1)[0])
   }
   return hand
 }
