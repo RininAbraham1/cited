@@ -62,7 +62,7 @@ export default function Landing() {
           {/* The mascot surrounded by answer stickers. */}
           <div className="relative mx-auto h-[340px] w-full max-w-[420px] sm:h-[400px]">
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-              <Mascot mood="happy" size={210} />
+              <Mascot mood="hero" size={210} label="Cited’s asterisk mascot" />
             </div>
             <AnswerSticker i={0} text="Two" className="left-0 top-4" r={-8} />
             <AnswerSticker i={1} text="Eight" className="right-0 top-0" r={7} />

@@ -8,10 +8,11 @@
  *   cheer — keeps jumping (final scores, the winner)
  *   sad   — droops (wrong answer, failed game)
  *   wow   — surprised (no answer, reveal)
+ *   hero  — home page: floats, hops now and then, blinks and glances around
  */
 import { cn } from '@/lib/utils'
 
-export type Mood = 'idle' | 'think' | 'happy' | 'cheer' | 'sad' | 'wow'
+export type Mood = 'idle' | 'think' | 'happy' | 'cheer' | 'sad' | 'wow' | 'hero'
 
 export function Mascot({
   mood = 'idle',
@@ -65,8 +66,13 @@ export function Mascot({
             <>
               <ellipse cx="42" cy="46" rx="5.6" ry={mood === 'wow' ? 7.4 : 6.6} fill="#fff" stroke="var(--ink)" strokeWidth="2" />
               <ellipse cx="58" cy="46" rx="5.6" ry={mood === 'wow' ? 7.4 : 6.6} fill="#fff" stroke="var(--ink)" strokeWidth="2" />
-              <circle cx={mood === 'think' ? 44 : 42.6} cy={mood === 'think' ? 43.5 : mood === 'sad' ? 48 : 46.5} r="2.9" fill="var(--ink)" />
-              <circle cx={mood === 'think' ? 60 : 58.6} cy={mood === 'think' ? 43.5 : mood === 'sad' ? 48 : 46.5} r="2.9" fill="var(--ink)" />
+              <g className="m-pupils">
+                <circle cx={mood === 'think' ? 44 : 42.6} cy={mood === 'think' ? 43.5 : mood === 'sad' ? 48 : 46.5} r="2.9" fill="var(--ink)" />
+                <circle cx={mood === 'think' ? 60 : 58.6} cy={mood === 'think' ? 43.5 : mood === 'sad' ? 48 : 46.5} r="2.9" fill="var(--ink)" />
+                {/* eye shine */}
+                <circle cx={mood === 'think' ? 45 : 43.6} cy={mood === 'think' ? 42.5 : mood === 'sad' ? 47 : 45.4} r="0.9" fill="#fff" />
+                <circle cx={mood === 'think' ? 61 : 59.6} cy={mood === 'think' ? 42.5 : mood === 'sad' ? 47 : 45.4} r="0.9" fill="#fff" />
+              </g>
             </>
           )}
         </g>
@@ -84,7 +90,7 @@ export function Mascot({
         {mood === 'think' && <path d="M45 59 Q50 57 55 58" fill="none" stroke="var(--ink)" strokeWidth="3" strokeLinecap="round" />}
         {mood === 'sad' && <path d="M43 61.5 Q50 55.5 57 61.5" fill="none" stroke="var(--ink)" strokeWidth="3" strokeLinecap="round" />}
         {mood === 'wow' && <ellipse cx="50" cy="59.5" rx="3.6" ry="4.4" fill="var(--ink)" />}
-        {squint && (
+        {(squint || mood === 'hero') && (
           <g>
             <path d="M41 55 Q50 67 59 55 Z" fill="var(--ink)" stroke="var(--ink)" strokeWidth="2" strokeLinejoin="round" />
             <path d="M45.5 60.5 Q50 64.5 54.5 60.5 Q50 58.5 45.5 60.5 Z" fill="var(--hl-pink)" />
