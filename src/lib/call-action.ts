@@ -19,6 +19,6 @@ export async function callAction<T = unknown>(
     if (body && 'success' in body) return body
     return { success: false, error: (body as { error?: string } | null)?.error ?? `Request failed (${res.status})` }
   } catch {
-    return { success: false, error: 'Network error — check your connection.' }
+    return { success: false, error: 'Network error. Check your connection.' }
   }
 }

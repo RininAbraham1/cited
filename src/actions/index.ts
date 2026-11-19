@@ -129,7 +129,7 @@ const createGame: ActionHandler<Env> = async ({ userId, params, tools, env }) =>
 
 const joinGame: ActionHandler<Env> = async ({ userId, params, tools }) => {
   const code = normalizeJoinCode(params.code)
-  if (!code) return fail('That code doesn’t look right — codes are 5 letters/numbers.')
+  if (!code) return fail('That code doesn’t look right. Codes are 5 letters or numbers.')
   const [game] = await queryAll<Game>(tools, 'games', { code }, 1)
   if (!game) return fail('No game with that code.')
   if (game.data.status === 'finished' || game.data.status === 'failed') return fail('That game has ended.')
@@ -169,7 +169,7 @@ const advance: ActionHandler<Env> = async ({ userId, params, tools }) => {
   }
 
   const bank = await getRecord<BankQuestion>(tools, 'question_bank', `${gameId}-q${next}`)
-  if (!bank) return fail('Question missing — try regenerating the game.')
+  if (!bank) return fail('Question missing. Try starting a new game.')
 
   const openedAt = Date.now()
   const endsAt = openedAt + g.secondsPerQuestion * 1000

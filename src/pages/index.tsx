@@ -80,7 +80,7 @@ export default function Landing() {
             <div className="order-2 md:order-1">
               <h2 className="title-pop text-5xl leading-none md:text-6xl">What you get</h2>
               <p className="mt-4 max-w-md text-lg font-semibold text-muted-foreground">
-                Claude writes the questions, but it has to show its work. Each one must quote a sentence that appears word for
+                The AI writes the questions, but it has to show its work. Each one must quote a sentence that appears word for
                 word in the article. No quote, no question.
               </p>
               <div className="mt-6 flex items-center gap-3">

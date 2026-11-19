@@ -225,7 +225,7 @@ function Generating({ stage, topic }: { stage?: string; topic: string }) {
         </div>
       </div>
       <p className="mt-6 font-semibold opacity-70">
-        Claude writes the questions from the articles, then every question is checked: if its quoted evidence isn’t
+        We write the questions from the articles, then every question is checked: if its quoted evidence isn’t
         word-for-word in the article, it’s thrown out. Share the code while you wait.
       </p>
     </div>
@@ -479,7 +479,7 @@ function Finished({ game, players, questions }: { game: Game; players: Rec<Playe
                 )}
                 {q.data.quote && (
                   <p className="mt-2 text-sm font-semibold opacity-75">
-                    “{q.data.quote}” —{' '}
+                    “{q.data.quote}”{' '}<span className="opacity-60">from</span>{' '}
                     <a href={q.data.sourceUrl} target="_blank" rel="noreferrer" className="font-black underline underline-offset-2">{q.data.sourceTitle}</a>
                   </p>
                 )}
