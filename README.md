@@ -109,7 +109,8 @@ The game's rules are enforced on the server, not in the UI:
 | **Integration: `elevenlabs`** | Optional host-only "read questions aloud" for a TV or projector setup. Generated on demand and never stored (about 20 KB per question) |
 
 **Left out on purpose:**
-- **AI chat panel:** a chatbot next to a quiz is a cheating tool.
+- **AI chat panel and agent tools:** a chatbot next to a quiz is a cheating tool, so the template's
+  in-app chat and local-assistant tool routes are removed entirely (less code, fewer routes to secure).
 - **Payments:** nothing to sell in an evaluation build.
 - **File uploads:** nothing to upload.
 - **Email:** invites travel as a 5-letter code or link, which is faster in a room than email.

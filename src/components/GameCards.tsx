@@ -7,11 +7,10 @@ import { Loader2 } from 'lucide-react'
 import { useToast } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { callAction } from '@/lib/call-action'
-import { CARDS, cardEffect, streakMultiplier, type CardId, type CardPlay, type Draw, type Player } from '@/lib/game-logic'
+import { CARDS, cardEffect, streakMultiplier, type CardId, type CardPlay, type Draw, type Player, type Rec } from '@/lib/game-logic'
 import { FlipCard } from './TarotCard'
 import { Mascot } from './Mascot'
 
-type Rec<T> = { recordId: string; data: T }
 
 /** After a right answer: pick 1 of 3 face-down cards, then see what you got. */
 export function CardPicker({

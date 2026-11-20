@@ -53,8 +53,8 @@ export default function Landing() {
               <Link to="/play" className="pop font-display inline-flex h-14 items-center rounded-2xl bg-hl-1 px-8 text-2xl text-ink">
                 Host a game
               </Link>
-              <Link to="/play" className="pop font-code inline-flex h-14 items-center rounded-2xl bg-paper px-6 text-lg tracking-[0.2em] text-ink">
-                JOIN&nbsp;·&nbsp;K7QPX
+              <Link to="/play?mode=solo" className="pop font-display inline-flex h-14 items-center rounded-2xl bg-paper px-6 text-2xl text-ink" data-testid="try-solo">
+                Try a solo run
               </Link>
             </div>
           </div>

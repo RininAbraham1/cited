@@ -17,6 +17,9 @@ export const LIMITS = {
   articleChars: 9000,
 }
 
+/** A record as subscriptions return it. */
+export type Rec<T> = { recordId: string; data: T }
+
 export type GameStatus = 'generating' | 'lobby' | 'question' | 'reveal' | 'finished' | 'failed'
 export type GameMode = 'party' | 'solo'
 

@@ -4,7 +4,7 @@
  */
 
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth, useQuery } from 'deepspace'
 import { ArrowRight, BookOpen } from 'lucide-react'
 import { Button, Input, useToast } from '@/components/ui'
@@ -24,7 +24,8 @@ export default function PlayPage() {
   const [questionCount, setQuestionCount] = useState<number>(8)
   const [seconds, setSeconds] = useState<number>(20)
   const [creating, setCreating] = useState(false)
-  const [mode, setMode] = useState<'party' | 'solo'>('party')
+  const [params] = useSearchParams()
+  const [mode, setMode] = useState<'party' | 'solo'>(params.get('mode') === 'solo' ? 'solo' : 'party')
 
   const [code, setCode] = useState('')
   const [joining, setJoining] = useState(false)

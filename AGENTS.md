@@ -34,18 +34,11 @@ npx deepspace auth login   # authenticate with app.space
 npx deepspace dev start    # local dev server (vite + miniflare)
 npx deepspace deploy       # deploy to <app>.app.space
 npx deepspace push         # sync code to the app's cloud repo
-npx deepspace agent tools <app> --json # discover tools and their input schemas
-npx deepspace agent invoke <app> <tool> --input-file tool-input.json --json
 npx deepspace add --list   # list optional features (messaging, etc.)
 npx deepspace add <feature>
 ```
 
-`worker.ts` already exposes the tools from `src/ai/tools.ts` over HTTP, MCP and
-browser tools; add tools there instead of registering the routes again. For
-local app tools, always run `agent tools` first and follow the returned
-description and input schema rather than guessing arguments. `agent invoke`
-reuses the current CLI login and requires no separate connection. If it reports
-`not_authenticated`, run the refusal's action when present. In a
-headless shell without an action, run `npx deepspace auth login --help` and use
-the operator-supplied credential path it names; never invent credentials or put
-a password on the command line.
+Cited intentionally does **not** register the scaffold's agent surfaces (in-app
+AI chat and local-assistant tool routes); `src/ai/` was removed. Don't re-add
+them: an assistant beside a live quiz is a cheating tool. Game state changes
+only through the server actions in `src/actions/index.ts`.
