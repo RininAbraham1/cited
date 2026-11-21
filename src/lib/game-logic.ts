@@ -1,4 +1,4 @@
-/**
+i ca/**
  * Pure game logic shared by the worker (actions, job) and unit tests.
  * No SDK imports here, so everything is testable with plain vitest.
  */
