@@ -1,4 +1,5 @@
 # Cited: live trivia with sourced answers
+<img width="1200" height="630" alt="preview" src="https://github.com/user-attachments/assets/bad8dd33-5e8d-44ec-80aa-f2b18eaa8587" />
 
 **Live:** https://cited.app.space
 
