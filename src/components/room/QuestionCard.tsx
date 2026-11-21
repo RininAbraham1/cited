@@ -12,7 +12,7 @@ import { CardPicker } from '@/components/GameCards'
 const LETTERS = ['A', 'B', 'C', 'D']
 
 export function QuestionCard({
-  gameId, game, question, myAnswer, remainingMs, answeredCount, playerCount, isPlayer, solo, streak, draws, players, meId, reaction,
+  gameId, game, question, myAnswer, remainingMs, answeredCount, playerCount, isPlayer, solo, streak, draws, players, meId, reaction, cardOwed,
 }: {
   gameId: string
   game: Game
@@ -28,6 +28,8 @@ export function QuestionCard({
   players: Rec<Player>[]
   meId: string | null
   reaction: { mood: Mood; line: string }
+  cardOwed: boolean
+  cardEvery: number
 }) {
   const { error } = useToast()
   const [pending, setPending] = useState<number | null>(null)
@@ -64,7 +66,8 @@ export function QuestionCard({
   }, [revealed, myAnswer?.correct])
 
   // A right answer earns a card: the picker takes the question's place until you pick.
-  const earnedCard = revealed && !!myAnswer?.correct && isPlayer
+  // A card only when this right answer crossed a points milestone (or one is already drawn here).
+  const earnedCard = revealed && !!myAnswer?.correct && isPlayer && (cardOwed || !!myDraw)
   const picking = earnedCard && !myDraw
 
   return (
@@ -107,6 +110,7 @@ export function QuestionCard({
         <>
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <p className="stamp sticker font-display bg-hl-2 px-4 py-1.5 text-3xl leading-none">Correct! +{myAnswer?.points}</p>
+            <p className="font-display text-xl text-paper">✱ Milestone reached: you earned a card!</p>
           </div>
           <CardPicker gameId={gameId} index={question.index} draw={myDraw} players={players} meId={meId} lastQuestion={question.index + 1 >= game.questionCount} solo={solo} />
         </>
@@ -172,12 +176,17 @@ export function QuestionCard({
         <div className={cn('mt-8 grid items-start gap-6', !earnedCard && 'md:grid-cols-[auto_1fr]')}>
           {!earnedCard && (
             <div className="flex justify-center md:block md:pt-4">
-              {myAnswer ? (myAnswer.points != null && (
+              {myAnswer ? (myAnswer.points != null && (myAnswer.correct ? (
+                <p className="stamp sticker font-display bg-hl-2 px-5 py-2 text-center leading-none">
+                  <span className="block text-4xl">Correct!</span>
+                  <span className="block text-2xl">+{myAnswer.points}</span>
+                </p>
+              ) : (
                 <p className="stamp sticker font-display bg-hl-1 px-5 py-2 text-center leading-none">
                   <span className="block text-4xl">Nope!</span>
                   <span className="block text-2xl">0 pts</span>
                 </p>
-              )) : isPlayer ? (
+              ))) : isPlayer ? (
                 <p className="stamp sticker font-display bg-paper px-5 py-2 text-3xl leading-none">Too slow!</p>
               ) : null}
             </div>

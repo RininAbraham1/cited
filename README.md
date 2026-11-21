@@ -38,7 +38,9 @@ finishing saves your **best score per topic** in `bests`, readable only by you.
 
 ## Footnote cards
 
-Answer correctly and you pick 1 of 3 face-down cards. The **server** deals and applies the card in
+Cards are earned at milestones: **one card for every 2,500 points you earn from answers** (card
+points don't count, so steals and bonuses can't chain into more cards). A "Next card" meter shows
+progress. When a right answer crosses a milestone you pick 1 of 3 face-down cards. The **server** deals and applies the card in
 `drawCard`; the browser only sends which slot you tapped.
 
 | Card | Effect |

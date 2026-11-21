@@ -109,6 +109,8 @@ export interface Env extends DOBindings<typeof __DO_MANIFEST__> {
   /** Local e2e only: fixed 3-card hand ("jester,librarian,scholar"). Ignored
    *  unless the app id is the unregistrable all-zero test id. */
   CARD_DECK_OVERRIDE?: string
+  /** Local e2e only: points per card (so short test games earn cards). Same guard. */
+  CARD_EVERY_OVERRIDE?: string
   OWNER_USER_ID: string
   /**
    * Long-lived owner JWT used for developer-billed server calls. User-billed

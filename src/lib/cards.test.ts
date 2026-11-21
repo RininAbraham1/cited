@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  CARDS, cardPool, dealHand, handSize, pickSuggestions, oracleStrikes, redactedPenalty, scoreWithCards, stealOutcome, streakAt, streakMultiplier,
+  CARDS, answerPoints, cardPool, cardsOwed, dealHand, handSize, nextCardProgress, pickSuggestions, oracleStrikes, redactedPenalty, scoreWithCards, stealOutcome, streakAt, streakMultiplier,
 } from './game-logic'
 
 const seq = (...xs: number[]) => { let i = 0; return () => xs[i++ % xs.length] }
@@ -109,5 +109,21 @@ describe('Did you mean…? suggestions', () => {
   })
   it('never repeats an article', () => {
     expect(pickSuggestions(['A b', 'a B', 'C d'], 'x')).toEqual(['A b', 'C d'])
+  })
+})
+
+describe('card milestones', () => {
+  it('earns one card per 2,500 answer points', () => {
+    expect(cardsOwed(2499, 0)).toBe(0)
+    expect(cardsOwed(2500, 0)).toBe(1)
+    expect(cardsOwed(5100, 1)).toBe(1)
+    expect(cardsOwed(5100, 2)).toBe(0)
+  })
+  it('never owes a negative number of cards', () => {
+    expect(cardsOwed(1000, 3)).toBe(0)
+  })
+  it('counts only answer points, and shows progress to the next card', () => {
+    expect(answerPoints([{ points: 900 }, { points: undefined }, { points: 1200 }])).toBe(2100)
+    expect(nextCardProgress(3700)).toEqual({ have: 1200, need: 2500 })
   })
 })

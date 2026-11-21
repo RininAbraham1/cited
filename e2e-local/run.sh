@@ -49,6 +49,7 @@ PLATFORM_WORKER_URL="http://127.0.0.1:8799"
 OWNER_USER_ID="user_owner"
 APP_OWNER_JWT="owner-jwt-placeholder"
 CARD_DECK_OVERRIDE="jester,librarian,scholar"
+CARD_EVERY_OVERRIDE="500"
 VARS
 
 (cd "$WORK/app" && npx vite build > "$WORK/build.log" 2>&1)

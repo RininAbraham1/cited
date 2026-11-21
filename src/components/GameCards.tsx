@@ -195,3 +195,20 @@ export function SoloPanel({ score, streak, best }: { score: number; streak: numb
     </div>
   )
 }
+
+/** Progress toward the next footnote card (one per N points from answers). */
+export function CardMeter({ have, need }: { have: number; need: number }) {
+  const pct = Math.min(100, Math.round((have / need) * 100))
+  return (
+    <div className="sheet mt-5 p-4" data-testid="card-meter">
+      <div className="flex items-baseline justify-between">
+        <p className="font-display text-xl">Next card</p>
+        <p className="font-code text-sm">{have.toLocaleString('en-US')} / {need.toLocaleString('en-US')}</p>
+      </div>
+      <div className="mt-2 h-4 overflow-hidden rounded-full border-[3px] border-[var(--ink)] bg-white" aria-hidden>
+        <div className="h-full bg-hl-1 transition-[width] duration-700" style={{ width: `${pct}%` }} />
+      </div>
+      <p className="mt-1.5 text-xs font-bold opacity-60">Earn {need.toLocaleString('en-US')} points from answers to draw a card.</p>
+    </div>
+  )
+}

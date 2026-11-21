@@ -24,8 +24,8 @@ import { useAuth, usePresenceRoom, useQuery } from 'deepspace'
 import { Button, useToast } from '@/components/ui'
 import { Mascot } from '@/components/Mascot'
 import { callAction } from '@/lib/call-action'
-import { LIMITS, streakAt, type Answer, type CardPlay, type Draw, type Game, type Player, type PublicQuestion } from '@/lib/game-logic'
-import { CardFeed, CardPicker, FeedBanner, JesterPrompt, SoloPanel } from '@/components/GameCards'
+import { CARD_LIMITS, LIMITS, answerPoints, cardsOwed, nextCardProgress, streakAt, type Answer, type CardPlay, type Draw, type Game, type Player, type PublicQuestion } from '@/lib/game-logic'
+import { CardFeed, CardMeter, CardPicker, FeedBanner, JesterPrompt, SoloPanel } from '@/components/GameCards'
 import { reactionFor, ReactionMascot } from '@/components/room/Reaction'
 import { Header } from '@/components/room/RoomHeader'
 import { Generating, Failed, Lobby } from '@/components/room/Phases'
@@ -105,8 +105,14 @@ function Room({ gameId, game }: { gameId: string; game: Game }) {
   const pendingJester = myDraws.find((d) => d.data.card === 'jester' && d.data.status === 'pending')
   const drewFor = (i: number) => myDraws.some((d) => d.data.index === i)
 
+  // Cards come at milestones: one per `cardEvery` points earned from answers.
+  const cardEvery = game.cardEvery ?? CARD_LIMITS.pointsPerCard
+  const myAnswerPoints = answerPoints(myAnswers.map((a) => a.data))
+  const owed = cardsOwed(myAnswerPoints, myDraws.length, cardEvery)
+  const meter = nextCardProgress(myAnswerPoints, cardEvery)
+
   // Solo: you can't move on until you've picked the card you earned.
-  const mustPickCard = solo && game.status === 'reveal' && !!myAnswer?.correct && !drewFor(game.currentIndex)
+  const mustPickCard = solo && game.status === 'reveal' && !!myAnswer?.correct && owed > 0 && !drewFor(game.currentIndex)
 
   // Party: if the host moved on before I picked, my cards carry over to the top
   // of the next question (the server accepts that draw while it's open). The
@@ -116,9 +122,9 @@ function Room({ gameId, game }: { gameId: string; game: Game }) {
   const [carryIndex, setCarryIndex] = useState<number | null>(null)
   useEffect(() => {
     if (solo || game.status !== 'question') { setCarryIndex(null); return }
-    if (prevCorrect && !drewFor(prevIndex)) setCarryIndex(prevIndex)
+    if (prevCorrect && owed > 0 && !drewFor(prevIndex)) setCarryIndex(prevIndex)
     else setCarryIndex((c) => (c === prevIndex ? c : null))
-  }, [solo, game.status, prevIndex, prevCorrect, myDraws])
+  }, [solo, game.status, prevIndex, prevCorrect, myDraws, owed])
 
   const { records: bests } = useQuery<{ topicKey: string; score: number }>('bests', {
     where: { topicKey: game.topic.trim().toLowerCase() }, limit: 1,
@@ -193,6 +199,8 @@ function Room({ gameId, game }: { gameId: string; game: Game }) {
               players={players}
               meId={userId}
               reaction={reaction}
+              cardOwed={owed > 0}
+              cardEvery={cardEvery}
             />
           )}
           {game.status === 'finished' && <Finished game={game} players={players} questions={questions} solo={solo} meId={userId} />}
@@ -202,6 +210,7 @@ function Room({ gameId, game }: { gameId: string; game: Game }) {
           {solo
             ? <SoloPanel score={me?.data.score ?? 0} streak={streak} best={bests[0]?.data.score} />
             : <Scoreboard players={players} online={online} meId={userId} hostId={game.hostId} highlightIndex={game.status === 'question' ? game.currentIndex : null} />}
+          {me && game.status !== 'generating' && game.status !== 'failed' && <CardMeter have={meter.have} need={meter.need} />}
           {!solo && <CardFeed plays={plays} />}
         </aside>
       </div>

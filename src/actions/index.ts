@@ -30,6 +30,8 @@ import {
   LIMITS,
   CARD_LIMITS,
   CARDS,
+  answerPoints,
+  cardsOwed,
   dealHand,
   oracleStrikes,
   redactedPenalty,
@@ -143,6 +145,7 @@ const createGame: ActionHandler<Env> = async ({ userId, params, tools, env }) =>
     endsAt: 0,
     sources: [],
     mode,
+    cardEvery: testCardEvery(env) ?? CARD_LIMITS.pointsPerCard,
   })
   if (!created.success) return created
   const gameId = created.data.recordId
@@ -211,7 +214,7 @@ const advance: ActionHandler<Env> = async ({ userId, params, tools }) => {
   // the pick carries over into the next question instead; see drawCard).
   if (g.mode === 'solo' && g.status === 'reveal') {
     const [mine] = await queryAll<Answer>(tools, 'answers', { gameId, index: g.currentIndex, userId }, 1)
-    if (mine?.data.correct) {
+    if (mine?.data.correct && (await owedCards(tools, g, gameId, userId)) > 0) {
       const [drawn] = await queryAll<Draw>(tools, 'draws', { gameId, index: g.currentIndex, userId }, 1)
       if (!drawn) return fail('Pick your card first!')
     }
@@ -391,7 +394,10 @@ const drawCard: ActionHandler<Env> = async ({ userId, params, tools, env }) => {
   if (!open) return fail('Too late to draw for that question.')
 
   const [answer] = await queryAll<Answer>(tools, 'answers', { gameId, index, userId }, 1)
-  if (!answer?.data.correct) return fail('Only right answers earn a card.')
+  if (!answer?.data.correct) return fail('Cards are earned on right answers.')
+  if ((await owedCards(tools, g, gameId, userId)) <= 0) {
+    return fail(`Cards come every ${(g.cardEvery ?? CARD_LIMITS.pointsPerCard).toLocaleString('en-US')} points. Keep going!`)
+  }
   const players = await queryAll<Player>(tools, 'players', { gameId })
   const me = players.find((p) => p.data.userId === userId)
   if (!me) return fail('Join the game first.')
@@ -429,8 +435,20 @@ const drawCard: ActionHandler<Env> = async ({ userId, params, tools, env }) => {
   return { success: true, data: { card, offered, delta, needsTarget: card === 'jester' } }
 }
 
+/** Cards earned but not yet drawn by this player (milestones on answer points). */
+async function owedCards(tools: ActionTools, g: Game, gameId: string, userId: string): Promise<number> {
+  const mine = await queryAll<Answer>(tools, 'answers', { gameId, userId }, 500)
+  const drawn = await queryAll<Draw>(tools, 'draws', { gameId, userId }, 500)
+  return cardsOwed(answerPoints(mine.map((a) => a.data)), drawn.length, g.cardEvery ?? CARD_LIMITS.pointsPerCard)
+}
+
 /** The test id can never be registered, so this seam is dead in production. */
 const TEST_APP_ID = 'app_00000000000000000000000000'
+function testCardEvery(env: Env): number | null {
+  if (env.DEEPSPACE_APP_ID !== TEST_APP_ID || !env.CARD_EVERY_OVERRIDE) return null
+  const n = Number(env.CARD_EVERY_OVERRIDE)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
 function testHand(env: Env): CardId[] | null {
   if (env.DEEPSPACE_APP_ID !== TEST_APP_ID || !env.CARD_DECK_OVERRIDE) return null
   const hand = env.CARD_DECK_OVERRIDE.split(',').map((c) => c.trim()) as CardId[]

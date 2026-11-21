@@ -38,6 +38,8 @@ export interface Game {
   sources?: Array<{ title: string; url: string }>
   /** 'solo' runs have one player and skip the lobby. Missing = 'party'. */
   mode?: GameMode
+  /** Points from answers needed per footnote card (set when the game is created). */
+  cardEvery?: number
   /** Solo only: the player's best score on this topic before this run. */
   bestBefore?: number
   /** Failed games: up to 3 Wikipedia articles to try instead ("Did you mean…?"). */
@@ -372,6 +374,8 @@ export const CARD_WEIGHTS: Record<CardId, number> = {
 }
 
 export const CARD_LIMITS = {
+  /** One card per this many points earned from ANSWERS (card points don't count). */
+  pointsPerCard: 2500,
   scholarBonus: 250,
   redactedPenalty: 100,
   stealShare: 0.2,
@@ -386,6 +390,22 @@ export function cardPool(opts: { solo: boolean; lastQuestion: boolean }): CardId
     if (opts.lastQuestion && c.nextQuestion) return false
     return true
   })
+}
+
+/** Points earned from answers only: steals, Scholar and Redacted never move card milestones. */
+export function answerPoints(answers: Pick<Answer, 'points'>[]): number {
+  return answers.reduce((s, a) => s + (a.points ?? 0), 0)
+}
+
+/** Cards earned but not yet drawn: one per `every` answer points. */
+export function cardsOwed(points: number, drawn: number, every: number = CARD_LIMITS.pointsPerCard): number {
+  return Math.max(0, Math.floor(Math.max(0, points) / every) - drawn)
+}
+
+/** Progress toward the next card, for the meter. */
+export function nextCardProgress(points: number, every: number = CARD_LIMITS.pointsPerCard): { have: number; need: number } {
+  const p = Math.max(0, points)
+  return { have: p % every, need: every }
 }
 
 /** How many face-down cards a hand has: 3, or fewer if fewer distinct cards fit
