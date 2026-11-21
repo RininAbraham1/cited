@@ -359,7 +359,7 @@ export interface CardDef {
 }
 
 export const CARDS: Record<CardId, CardDef> = {
-  scholar: { id: 'scholar', numeral: 'I', name: 'The Scholar', effect: '+200 points' },
+  scholar: { id: 'scholar', numeral: 'I', name: 'The Scholar', effect: '+250 points' },
   // On the last question there is no "next", so the Twins double the answer just given.
   twins: { id: 'twins', numeral: 'II', name: 'The Twins', effect: 'Next right answer counts double' },
   jester: { id: 'jester', numeral: 'III', name: 'The Jester', effect: 'Reversed: steal 20% from anyone', social: true },
@@ -373,7 +373,7 @@ export const CARD_WEIGHTS: Record<CardId, number> = {
 }
 
 export const CARD_LIMITS = {
-  scholarBonus: 200,
+  scholarBonus: 250,
   redactedPenalty: 100,
   stealShare: 0.2,
   handSize: 3,
