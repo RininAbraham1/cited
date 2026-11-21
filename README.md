@@ -42,7 +42,7 @@ Answer correctly and you pick 1 of 3 face-down cards. The **server** deals and a
 
 | Card | Effect |
 | ---- | ------ |
-| I · The Scholar | +200 points |
+| I · The Scholar | +250 points |
 | II · The Twins | your next right answer counts double (on the last question: this answer counts double) |
 | III · The Jester (reversed) | steal 20% of another player's points (you pick who) |
 | IV · The Librarian | shield: blocks the next steal against you |
