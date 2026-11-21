@@ -14,7 +14,7 @@ import { Mascot } from './Mascot'
 
 /** After a right answer: pick 1 of 3 face-down cards, then see what you got. */
 export function CardPicker({
-  gameId, index, draw, players, meId, lastQuestion,
+  gameId, index, draw, players, meId, lastQuestion, hint,
 }: {
   gameId: string
   index: number
@@ -22,6 +22,7 @@ export function CardPicker({
   players: Rec<Player>[]
   meId: string | null
   lastQuestion: boolean
+  hint?: string
 }) {
   const { error } = useToast()
   const [busy, setBusy] = useState<number | null>(null)
@@ -51,7 +52,7 @@ export function CardPicker({
         <div>
           <h3 className="font-display text-2xl leading-none">{shown ? CARDS[shown.card].name : 'You earned a card!'}</h3>
           <p className="mt-1 text-sm font-bold opacity-70">
-            {shown ? cardEffect(shown.card, lastQuestion) : 'Pick one. Choose before the next question opens.'}
+            {shown ? cardEffect(shown.card, lastQuestion) : (hint ?? 'Pick one to keep playing.')}
           </p>
         </div>
       </div>
@@ -134,7 +135,7 @@ export function describePlay(p: CardPlay): string {
     case 'scholar': return `${who} drew The Scholar: +${p.actorDelta}`
     case 'redacted': return `${who} drew Redacted: ${p.actorDelta}`
     case 'librarian': return `${who} is hiding behind The Librarian`
-    case 'twins': return p.actorDelta ? `${who} drew The Twins: +${p.actorDelta} (doubled!)` : `${who} drew The Twins: next answer doubles`
+    case 'twins': return p.actorDelta ? `${who} drew The Twins: +${p.actorDelta} (doubled!)` : `${who} drew The Twins: double points on their next right answer`
     case 'oracle': return `${who} drew The Oracle and sees the future`
   }
 }

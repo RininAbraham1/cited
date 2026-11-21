@@ -207,6 +207,16 @@ const advance: ActionHandler<Env> = async ({ userId, params, tools }) => {
   if (g.hostId !== userId) return fail('Only the host can do that.')
   if (g.status !== 'lobby' && g.status !== 'reveal') return fail('Not ready to advance.')
 
+  // Solo: a right answer's card must be picked before moving on (in a party
+  // the pick carries over into the next question instead; see drawCard).
+  if (g.mode === 'solo' && g.status === 'reveal') {
+    const [mine] = await queryAll<Answer>(tools, 'answers', { gameId, index: g.currentIndex, userId }, 1)
+    if (mine?.data.correct) {
+      const [drawn] = await queryAll<Draw>(tools, 'draws', { gameId, index: g.currentIndex, userId }, 1)
+      if (!drawn) return fail('Pick your card first!')
+    }
+  }
+
   const next = g.currentIndex + 1
   if (next >= g.questionCount) {
     let bestBefore: number | undefined

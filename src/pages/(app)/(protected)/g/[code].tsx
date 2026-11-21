@@ -25,7 +25,7 @@ import { Button, useToast } from '@/components/ui'
 import { Mascot } from '@/components/Mascot'
 import { callAction } from '@/lib/call-action'
 import { LIMITS, streakAt, type Answer, type CardPlay, type Draw, type Game, type Player, type PublicQuestion } from '@/lib/game-logic'
-import { CardFeed, FeedBanner, JesterPrompt, SoloPanel } from '@/components/GameCards'
+import { CardFeed, CardPicker, FeedBanner, JesterPrompt, SoloPanel } from '@/components/GameCards'
 import { reactionFor, ReactionMascot } from '@/components/room/Reaction'
 import { Header } from '@/components/room/RoomHeader'
 import { Generating, Failed, Lobby } from '@/components/room/Phases'
@@ -103,6 +103,23 @@ function Room({ gameId, game }: { gameId: string; game: Game }) {
     return last < 0 ? 0 : streakAt(m, last)
   }, [myAnswers])
   const pendingJester = myDraws.find((d) => d.data.card === 'jester' && d.data.status === 'pending')
+  const drewFor = (i: number) => myDraws.some((d) => d.data.index === i)
+
+  // Solo: you can't move on until you've picked the card you earned.
+  const mustPickCard = solo && game.status === 'reveal' && !!myAnswer?.correct && !drewFor(game.currentIndex)
+
+  // Party: if the host moved on before I picked, my cards carry over to the top
+  // of the next question (the server accepts that draw while it's open). The
+  // index is latched so the flip animation isn't cut off once the draw lands.
+  const prevIndex = game.currentIndex - 1
+  const prevCorrect = !!myAnswers.find((a) => a.data.index === prevIndex)?.data.correct
+  const [carryIndex, setCarryIndex] = useState<number | null>(null)
+  useEffect(() => {
+    if (solo || game.status !== 'question') { setCarryIndex(null); return }
+    if (prevCorrect && !drewFor(prevIndex)) setCarryIndex(prevIndex)
+    else setCarryIndex((c) => (c === prevIndex ? c : null))
+  }, [solo, game.status, prevIndex, prevCorrect, myDraws])
+
   const { records: bests } = useQuery<{ topicKey: string; score: number }>('bests', {
     where: { topicKey: game.topic.trim().toLowerCase() }, limit: 1,
   })
@@ -133,11 +150,25 @@ function Room({ gameId, game }: { gameId: string; game: Game }) {
         <div className="sticky top-8 pt-2"><ReactionMascot {...reaction} /></div>
       </div>
       <div className="min-w-0">
-      <Header game={game} isHost={isHost} gameId={gameId} solo={solo} />
+      <Header game={game} isHost={isHost} gameId={gameId} solo={solo} mustPickCard={mustPickCard} />
 
       <div className="mt-8 grid gap-8 md:grid-cols-[1fr_17rem]">
         <main className="min-w-0">
           {!solo && <FeedBanner plays={plays} meId={userId} />}
+          {carryIndex != null && game.status === 'question' && (
+            <div className="mb-6" data-testid="carry-over-cards">
+              <p className="font-display mb-1 text-xl text-paper">Pick your card from the last question</p>
+              <CardPicker
+                gameId={gameId}
+                index={carryIndex}
+                draw={myDraws.find((d) => d.data.index === carryIndex)?.data}
+                players={players}
+                meId={userId}
+                lastQuestion={false}
+                hint="Pick one before this question closes."
+              />
+            </div>
+          )}
           {pendingJester && !(game.status === 'reveal' && pendingJester.data.index === game.currentIndex) && game.status !== 'finished' && (
             <div className="mb-5"><JesterPrompt compact gameId={gameId} index={pendingJester.data.index} players={players} meId={userId} /></div>
           )}

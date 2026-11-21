@@ -176,8 +176,11 @@ check('a blocked steal moves no points', afterBlock[users.bob] === beforeBlock[u
 check('a played Jester cannot be replayed', (await act('alice', 'playSteal', { gameId, index: 0, targetUserId: users.host })).success === false)
 // q4: bob answers right again (his shield is now spent)
 await act('host', 'advance', { gameId }); await answerRight('bob', 3); await act('host', 'reveal', { gameId })
+// q5 opens before bob picked his q4 card: in a party the pick carries over while q5 is open
+await act('host', 'advance', { gameId })
+check('party: an unpicked card can still be drawn while the next question is open', (await act('bob', 'drawCard', { gameId, index: 3, slot: 2 })).data?.card === 'scholar')
 // q5: alice answers right, draws another Jester and robs bob for real
-await act('host', 'advance', { gameId }); await answerRight('alice', 4); await act('host', 'reveal', { gameId })
+await answerRight('alice', 4); await act('host', 'reveal', { gameId })
 check('alice draws a second Jester', (await act('alice', 'drawCard', { gameId, index: 4, slot: 0 })).data?.card === 'jester')
 const beforeSteal = await scores()
 // Double-tap: two concurrent plays of the same Jester.
@@ -216,6 +219,8 @@ for (let i = 0; i < 5; i++) {
   const q = qs.records.find((r) => r.data.index === i)?.data
   await act('eve', 'submitAnswer', { gameId: solo.gameId, index: i, choice: q.choices.indexOf(correctText[q.prompt]) })
   await act('eve', 'reveal', { gameId: solo.gameId })
+  if (i === 0) check('solo: cannot skip past an earned card', (await act('eve', 'advance', { gameId: solo.gameId })).success === false)
+  await act('eve', 'drawCard', { gameId: solo.gameId, index: i, slot: 2 }) // scholar on the fixed local deck
 }
 const soloPlayers = await snapshot('eve', 'players', { gameId: solo.gameId }); soloPlayers.ws.close()
 const evePts = soloPlayers.records[0]?.data

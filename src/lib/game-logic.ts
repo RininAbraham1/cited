@@ -361,7 +361,7 @@ export interface CardDef {
 export const CARDS: Record<CardId, CardDef> = {
   scholar: { id: 'scholar', numeral: 'I', name: 'The Scholar', effect: '+250 points' },
   // On the last question there is no "next", so the Twins double the answer just given.
-  twins: { id: 'twins', numeral: 'II', name: 'The Twins', effect: 'Next right answer counts double' },
+  twins: { id: 'twins', numeral: 'II', name: 'The Twins', effect: 'Double points on your next right answer' },
   jester: { id: 'jester', numeral: 'III', name: 'The Jester', effect: 'Reversed: steal 20% from anyone', social: true },
   librarian: { id: 'librarian', numeral: 'IV', name: 'The Librarian', effect: 'Shield: blocks the next steal', social: true },
   oracle: { id: 'oracle', numeral: 'V', name: 'The Oracle', effect: 'Crosses out 2 wrong answers next question', nextQuestion: true },
@@ -391,7 +391,7 @@ export function cardPool(opts: { solo: boolean; lastQuestion: boolean }): CardId
 
 /** Twins effect text depends on whether a next question exists. */
 export function cardEffect(id: CardId, lastQuestion: boolean): string {
-  return id === 'twins' && lastQuestion ? 'Last question: this answer counts double' : CARDS[id].effect
+  return id === 'twins' && lastQuestion ? 'Doubles the points you just scored' : CARDS[id].effect
 }
 
 /**

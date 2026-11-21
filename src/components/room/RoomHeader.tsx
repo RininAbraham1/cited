@@ -7,7 +7,7 @@ import { callAction } from '@/lib/call-action'
 import { isMuted, playCorrect, setMuted, unlock } from '@/lib/sfx'
 import { type Game } from '@/lib/game-logic'
 
-export function Header({ game, isHost, gameId, solo }: { game: Game; isHost: boolean; gameId: string; solo: boolean }) {
+export function Header({ game, isHost, gameId, solo, mustPickCard }: { game: Game; isHost: boolean; gameId: string; solo: boolean; mustPickCard?: boolean }) {
   const [copied, setCopied] = useState(false)
   const link = typeof window !== 'undefined' ? `${window.location.origin}/g/${game.code}` : ''
   const live = game.status !== 'generating' && game.status !== 'lobby' && game.status !== 'failed'
@@ -26,7 +26,7 @@ export function Header({ game, isHost, gameId, solo }: { game: Game; isHost: boo
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <SoundToggle />
-        {isHost && <HostControls game={game} gameId={gameId} solo={solo} />}
+        {isHost && <HostControls game={game} gameId={gameId} solo={solo} mustPickCard={mustPickCard} />}
         {!solo && <button
           onClick={() => { void navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500) }}
           className="pop group flex rotate-[2deg] items-center gap-2 rounded-2xl bg-hl-0 px-4 py-1.5 text-ink"
@@ -58,7 +58,7 @@ export function SoundToggle() {
   )
 }
 
-export function HostControls({ game, gameId, solo }: { game: Game; gameId: string; solo?: boolean }) {
+export function HostControls({ game, gameId, solo, mustPickCard }: { game: Game; gameId: string; solo?: boolean; mustPickCard?: boolean }) {
   const { error } = useToast()
   const [busy, setBusy] = useState(false)
   const [readAloud, setReadAloud] = useState(false)
@@ -101,8 +101,8 @@ export function HostControls({ game, gameId, solo }: { game: Game; gameId: strin
       {game.status === 'lobby' && <Button size="lg" className="font-display h-12 bg-hl-1 text-xl font-normal" onClick={() => run('advance')} disabled={busy} data-testid="start-game">Start game</Button>}
       {game.status === 'question' && !solo && <Button size="lg" variant="outline" className="font-display h-12 text-xl font-normal" onClick={() => run('reveal')} disabled={busy}>Reveal now</Button>}
       {game.status === 'reveal' && (
-        <Button size="lg" className="font-display h-12 bg-hl-1 text-xl font-normal" onClick={() => run('advance')} disabled={busy} data-testid="next-question">
-          {last ? 'Final scores' : 'Next question'}
+        <Button size="lg" className="font-display h-12 bg-hl-1 text-xl font-normal" onClick={() => run('advance')} disabled={busy || mustPickCard} data-testid="next-question">
+          {mustPickCard ? 'Pick a card first' : last ? 'Final scores' : 'Next question'}
         </Button>
       )}
     </div>
