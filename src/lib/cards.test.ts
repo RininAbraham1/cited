@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  CARDS, cardPool, dealHand, pickSuggestions, oracleStrikes, redactedPenalty, scoreWithCards, stealOutcome, streakAt, streakMultiplier,
+  CARDS, cardPool, dealHand, handSize, pickSuggestions, oracleStrikes, redactedPenalty, scoreWithCards, stealOutcome, streakAt, streakMultiplier,
 } from './game-logic'
 
 const seq = (...xs: number[]) => { let i = 0; return () => xs[i++ % xs.length] }
@@ -12,27 +12,28 @@ describe('card pool', () => {
     expect(pool).not.toContain('librarian')
     expect(pool).toContain('oracle')
   })
-  it('never deals the Oracle on the last question (nothing left to cross out)', () => {
+  it('never deals the Twins or the Oracle on the last question (no next question)', () => {
     const pool = cardPool({ solo: false, lastQuestion: true })
     expect(pool).not.toContain('oracle')
-    expect(pool).toContain('twins')
+    expect(pool).not.toContain('twins')
     expect(pool).toContain('jester')
   })
-  it('always deals 3 DIFFERENT cards, in every situation', () => {
+  it('never repeats a card, in every situation (3 cards, or 2 on a solo last question)', () => {
     for (const solo of [true, false]) {
       for (const lastQuestion of [true, false]) {
-        expect(cardPool({ solo, lastQuestion }).length).toBeGreaterThanOrEqual(3)
+        const size = solo && lastQuestion ? 2 : 3
+        expect(handSize({ solo, lastQuestion })).toBe(size)
         for (let t = 0; t < 500; t++) {
           const hand = dealHand({ solo, lastQuestion })
-          expect(hand).toHaveLength(3)
-          expect(new Set(hand).size).toBe(3)
+          expect(hand).toHaveLength(size)
+          expect(new Set(hand).size).toBe(size)
           for (const c of hand) expect(cardPool({ solo, lastQuestion })).toContain(c)
         }
       }
     }
   })
-  it('solo last question deals exactly Scholar, Twins and Redacted', () => {
-    expect(new Set(dealHand({ solo: true, lastQuestion: true }))).toEqual(new Set(['scholar', 'twins', 'redacted']))
+  it('solo last question deals exactly Scholar and Redacted', () => {
+    expect(new Set(dealHand({ solo: true, lastQuestion: true }))).toEqual(new Set(['scholar', 'redacted']))
   })
   it('covers every card with a full random range', () => {
     const seen = new Set(dealHand({ solo: false, lastQuestion: false }, seq(0, 0.3, 0.999)))

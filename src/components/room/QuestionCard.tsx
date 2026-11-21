@@ -108,7 +108,7 @@ export function QuestionCard({
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <p className="stamp sticker font-display bg-hl-2 px-4 py-1.5 text-3xl leading-none">Correct! +{myAnswer?.points}</p>
           </div>
-          <CardPicker gameId={gameId} index={question.index} draw={myDraw} players={players} meId={meId} lastQuestion={question.index + 1 >= game.questionCount} />
+          <CardPicker gameId={gameId} index={question.index} draw={myDraw} players={players} meId={meId} lastQuestion={question.index + 1 >= game.questionCount} solo={solo} />
         </>
       )}
 

@@ -7,14 +7,14 @@ import { Loader2 } from 'lucide-react'
 import { useToast } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { callAction } from '@/lib/call-action'
-import { CARDS, cardEffect, streakMultiplier, type CardId, type CardPlay, type Draw, type Player, type Rec } from '@/lib/game-logic'
+import { CARDS, handSize, streakMultiplier, type CardId, type CardPlay, type Draw, type Player, type Rec } from '@/lib/game-logic'
 import { FlipCard } from './TarotCard'
 import { Mascot } from './Mascot'
 
 
 /** After a right answer: pick 1 of 3 face-down cards, then see what you got. */
 export function CardPicker({
-  gameId, index, draw, players, meId, lastQuestion, hint,
+  gameId, index, draw, players, meId, lastQuestion, solo, hint,
 }: {
   gameId: string
   index: number
@@ -22,6 +22,7 @@ export function CardPicker({
   players: Rec<Player>[]
   meId: string | null
   lastQuestion: boolean
+  solo: boolean
   hint?: string
 }) {
   const { error } = useToast()
@@ -52,17 +53,17 @@ export function CardPicker({
         <div>
           <h3 className="font-display text-2xl leading-none">{shown ? CARDS[shown.card].name : 'You earned a card!'}</h3>
           <p className="mt-1 text-sm font-bold opacity-70">
-            {shown ? cardEffect(shown.card, lastQuestion) : (hint ?? 'Pick one to keep playing.')}
+            {shown ? CARDS[shown.card].effect : (hint ?? 'Pick one to keep playing.')}
           </p>
         </div>
       </div>
 
-      <div className="mx-auto mt-4 grid max-w-md grid-cols-3 gap-3 sm:gap-4">
-        {[0, 1, 2].map((slot) => {
+      <div className="mx-auto mt-4 flex max-w-md justify-center gap-3 sm:gap-4">
+        {Array.from({ length: shown?.offered?.length ?? handSize({ solo, lastQuestion }) }, (_, i) => i).map((slot) => {
           const mine = shown?.slot === slot
           const card = shown ? shown.offered?.[slot] : undefined
           return (
-            <div key={slot} className="deal" style={{ animationDelay: `${slot * 90}ms` }}>
+            <div key={slot} className="deal w-1/3" style={{ animationDelay: `${slot * 90}ms` }}>
               <FlipCard
                 card={card}
                 faceUp={!!shown && (mine || showRest)}

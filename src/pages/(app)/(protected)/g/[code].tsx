@@ -165,6 +165,7 @@ function Room({ gameId, game }: { gameId: string; game: Game }) {
                 players={players}
                 meId={userId}
                 lastQuestion={false}
+                solo={solo}
                 hint="Pick one before this question closes."
               />
             </div>

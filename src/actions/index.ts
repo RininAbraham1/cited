@@ -400,9 +400,10 @@ const drawCard: ActionHandler<Env> = async ({ userId, params, tools, env }) => {
   const lastQuestion = index + 1 >= g.questionCount
   const offered = testHand(env) ?? dealHand({ solo, lastQuestion })
   const card = offered[slot]
+  if (!card) return fail('Invalid draw.')
 
   const draw: Draw = { gameId, index, userId, card, offered, slot, status: 'done' }
-  if (card === 'twins' && !lastQuestion) Object.assign(draw, { status: 'active', appliesTo: index + 1 })
+  if (card === 'twins') Object.assign(draw, { status: 'active', appliesTo: index + 1 })
   if (card === 'librarian') draw.status = 'active'
   if (card === 'jester') draw.status = 'pending'
   if (card === 'oracle') {
@@ -419,15 +420,13 @@ const drawCard: ActionHandler<Env> = async ({ userId, params, tools, env }) => {
   if (card !== 'jester') {
     if (card === 'scholar') delta = CARD_LIMITS.scholarBonus
     if (card === 'redacted') delta = redactedPenalty(me.data.score)
-    // Last question: no "next", so the Twins double the answer just scored.
-    if (card === 'twins' && lastQuestion) delta = answer.data.points ?? 0
     // Deterministic id: at most one ledger row per draw, whatever retries happen.
     await tools.create('card_plays', {
       gameId, index, card, actorId: userId, actorName: me.data.name ?? 'Player', actorDelta: delta, targetDelta: 0,
     }, `${gameId}-c${index}-${userId}`)
     if (delta !== 0) await recomputeScores(tools, gameId)
   }
-  return { success: true, data: { card, offered, delta, lastQuestion, needsTarget: card === 'jester' } }
+  return { success: true, data: { card, offered, delta, needsTarget: card === 'jester' } }
 }
 
 /** The test id can never be registered, so this seam is dead in production. */

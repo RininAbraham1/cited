@@ -360,8 +360,7 @@ export interface CardDef {
 
 export const CARDS: Record<CardId, CardDef> = {
   scholar: { id: 'scholar', numeral: 'I', name: 'The Scholar', effect: '+250 points' },
-  // On the last question there is no "next", so the Twins double the answer just given.
-  twins: { id: 'twins', numeral: 'II', name: 'The Twins', effect: 'Double points on your next right answer' },
+  twins: { id: 'twins', numeral: 'II', name: 'The Twins', effect: 'Double points on your next right answer', nextQuestion: true },
   jester: { id: 'jester', numeral: 'III', name: 'The Jester', effect: 'Reversed: steal 20% from anyone', social: true },
   librarian: { id: 'librarian', numeral: 'IV', name: 'The Librarian', effect: 'Shield: blocks the next steal', social: true },
   oracle: { id: 'oracle', numeral: 'V', name: 'The Oracle', effect: 'Crosses out 2 wrong answers next question', nextQuestion: true },
@@ -389,15 +388,16 @@ export function cardPool(opts: { solo: boolean; lastQuestion: boolean }): CardId
   })
 }
 
-/** Twins effect text depends on whether a next question exists. */
-export function cardEffect(id: CardId, lastQuestion: boolean): string {
-  return id === 'twins' && lastQuestion ? 'Doubles the points you just scored' : CARDS[id].effect
+/** How many face-down cards a hand has: 3, or fewer if fewer distinct cards fit
+ *  (only a solo run's last question: Scholar and Redacted). */
+export function handSize(opts: { solo: boolean; lastQuestion: boolean }): number {
+  return Math.min(CARD_LIMITS.handSize, cardPool(opts).length)
 }
 
 /**
  * Deal a face-down hand of DIFFERENT cards: weighted sampling without
  * replacement, so rarer cards stay rarer but a hand never repeats a card.
- * Every pool has at least 3 cards (solo, last question: Scholar, Twins, Redacted).
+ * A hand is 3 cards, or 2 on a solo run's last question (see handSize).
  */
 export function dealHand(
   opts: { solo: boolean; lastQuestion: boolean },
