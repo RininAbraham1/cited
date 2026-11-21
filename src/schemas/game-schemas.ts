@@ -56,6 +56,8 @@ export const gamesSchema: CollectionSchema = {
     { name: 'sources', storage: 'text', interpretation: { kind: 'json' } },
     { name: 'mode', storage: 'text', interpretation: { kind: 'select', options: ['party', 'solo'] } },
     { name: 'bestBefore', storage: 'number', interpretation: 'plain' },
+    { name: 'suggestions', storage: 'text', interpretation: { kind: 'json' } },
+    { name: 'nextCode', storage: 'text', interpretation: 'plain' },
   ],
   permissions: {
     viewer: { read: true, ...SERVER_ONLY_WRITES },

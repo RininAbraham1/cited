@@ -159,6 +159,15 @@ const createGame: ActionHandler<Env> = async ({ userId, params, tools, env }) =>
     console.error(`[createGame] enqueue failed: ${err instanceof Error ? err.message : String(err)}`)
     return fail('Could not start question generation.')
   }
+  // "Did you mean…?" retry: point the failed room at the new game so the
+  // friends already in it follow the host. Only the failed game's own host can.
+  const replaces = str(params.replaces)
+  if (replaces) {
+    const old = await getRecord<Game>(tools, 'games', replaces)
+    if (old && old.data.hostId === userId && old.data.status === 'failed') {
+      await tools.update('games', replaces, { nextCode: code })
+    }
+  }
   return { success: true, data: { gameId, code } }
 }
 

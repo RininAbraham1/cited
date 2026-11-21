@@ -40,7 +40,22 @@ function unwrap<T>(r: { success: boolean; data?: unknown; error?: string }, what
   return r.data as T
 }
 
-export async function findSources(tools: ActionTools, topic: string): Promise<Source[]> {
+/** A failure caused by the topic itself; carries other articles to try instead. */
+export class TopicError extends Error {
+  constructor(message: string, readonly suggestions: string[]) {
+    super(message)
+  }
+}
+
+export interface FoundSources {
+  sources: Source[]
+  /** Usable articles in search order (the chosen ones, then any untried), for suggestions. */
+  candidates: string[]
+  /** Articles fetched and found too thin. */
+  thin: string[]
+}
+
+export async function findSources(tools: ActionTools, topic: string): Promise<FoundSources> {
   const hits = unwrap<SearchHit[]>(
     await tools.integration('wikipedia/search-pages', { query: topic, limit: 8 }),
     'Wikipedia search',
@@ -52,19 +67,22 @@ export async function findSources(tools: ActionTools, topic: string): Promise<So
     .filter((t) => !/\(disambiguation\)$/i.test(t) && !/^List of /i.test(t))
 
   const sources: Source[] = []
+  const thin: string[] = []
   for (const title of titles) {
     if (sources.length >= LIMITS.articlesPerGame) break
     const page = await tools.integration('wikipedia/get-page-content', { title })
-    if (!page.success) continue
+    if (!page.success) { thin.push(title); continue }
     const html = (page.data as { htmlContent?: string })?.htmlContent ?? ''
     const text = articleTextFromHtml(html)
-    if (text.length < 1500) continue // stubs can't support several questions
+    if (text.length < 1500) { thin.push(title); continue } // stubs can't support several questions
     sources.push({ title, url: wikipediaUrl(title), text })
   }
   if (sources.length === 0) {
-    throw new Error(`Couldn't find Wikipedia articles with enough detail for "${topic}". Try a broader topic.`)
+    // Every candidate was thin, so the same search has nothing better to offer.
+    throw new TopicError(`Couldn't find Wikipedia articles with enough detail for "${topic}". Try a broader topic.`, [])
   }
-  return sources
+  const candidates = [...sources.map((s) => s.title), ...titles.filter((t) => !thin.includes(t) && !sources.some((s) => s.title === t))]
+  return { sources, candidates, thin }
 }
 
 /** Pull the text out of whichever response envelope the provider returned. */

@@ -228,6 +228,26 @@ const bobBest = await snapshot('bob', 'bests', {}); bobBest.ws.close()
 check('solo finish saves a personal best', eveBest.records.some((r) => r.data.topicKey === 'octopuses' && r.data.score === evePts.score), JSON.stringify(eveBest.records.map((r) => r.data)))
 check('bests are private', bobBest.records.every((r) => r.data.userId === users.bob))
 
+// 8c. a vague topic fails with "Did you mean…?" and the room follows the host's retry
+const vague = await act('bob', 'createGame', { topic: 'Mercury', questionCount: 5, secondsPerQuestion: 15 })
+check('vague topic game created', vague.success === true)
+let failedGame
+for (let i = 0; i < 40; i++) {
+  await sleep(500)
+  const s = await snapshot('bob', 'games', { code: vague.data.code }); s.ws.close()
+  failedGame = s.records[0]?.data
+  if (failedGame?.status === 'failed') break
+}
+check('vague topic fails generation', failedGame?.status === 'failed', `status=${failedGame?.status}`)
+check('failure offers 3 specific articles, skipping disambiguation and thin pages',
+  JSON.stringify(failedGame?.suggestions) === '["Mercury (planet)","Mercury (element)","Freddie Mercury"]', JSON.stringify(failedGame?.suggestions))
+const hijack = await act('eve', 'createGame', { topic: 'Freddie Mercury', questionCount: 5, secondsPerQuestion: 15, replaces: vague.data.gameId })
+const afterHijack = await snapshot('bob', 'games', { code: vague.data.code }); afterHijack.ws.close()
+check('a non-host cannot redirect someone else’s room', hijack.success === true && !afterHijack.records[0]?.data.nextCode)
+const retry = await act('bob', 'createGame', { topic: 'Mercury (planet)', questionCount: 5, secondsPerQuestion: 15, replaces: vague.data.gameId })
+const followed = await snapshot('alice', 'games', { code: vague.data.code }); followed.ws.close()
+check('host retry points the old room at the new game', retry.success && followed.records[0]?.data.nextCode === retry.data.code, JSON.stringify(followed.records[0]?.data.nextCode))
+
 // 9. integration proxy is locked
 const proxy = await fetch(`${BASE}/api/integrations/anthropic/chat-completion`, {
   method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${tok.eve}` }, body: '{}' })

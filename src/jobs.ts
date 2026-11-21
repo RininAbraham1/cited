@@ -15,8 +15,8 @@
 import type { Job, JobContext } from 'deepspace/worker'
 import type { Env } from '../worker'
 import { createActionTools } from './server/action-routes.js'
-import { draftQuestions, findSources } from './server/generate.js'
-import { shuffleChoices, type Game } from './lib/game-logic.js'
+import { TopicError, draftQuestions, findSources } from './server/generate.js'
+import { pickSuggestions, shuffleChoices, type Game } from './lib/game-logic.js'
 
 export async function runJob(job: Job, ctx: JobContext, env: Env): Promise<unknown> {
   switch (job.type) {
@@ -46,7 +46,8 @@ async function generateQuestions(
 
   try {
     await stage('Searching Wikipedia…', 0.1)
-    const sources = await findSources(tools, game.topic)
+    const found = await findSources(tools, game.topic)
+    const sources = found.sources
     await stage(`Reading ${sources.map((s) => s.title).join(', ')}…`, 0.3)
 
     const want = game.questionCount
@@ -64,7 +65,12 @@ async function generateQuestions(
       rejected += more.rejected.length
     }
     if (kept.length < Math.min(3, want)) {
-      throw new Error("Couldn't write enough verifiable questions on that topic. Try a different one.")
+      // Usually a vague or mixed topic ("Mercury": planet, element, singer).
+      // One specific article from the same search tends to work better.
+      throw new TopicError(
+        "Couldn't write enough verifiable questions on that topic. Try a different one.",
+        pickSuggestions(found.candidates, game.topic, found.thin),
+      )
     }
 
     const final = kept.slice(0, want)
@@ -97,7 +103,9 @@ async function generateQuestions(
     return { questions: final.length, rejected }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    await tools.update('games', gameId, { status: 'failed', stage: '', error: message })
+    // Only topic problems get "Did you mean…?"; an outage shouldn't suggest a new topic.
+    const suggestions = err instanceof TopicError ? err.suggestions : []
+    await tools.update('games', gameId, { status: 'failed', stage: '', error: message, suggestions })
     // Swallowed on purpose: the failure is shown in the room and a retry would
     // spend credits on the same doomed topic.
     console.warn(`[generate] game=${gameId} failed: ${message}`)

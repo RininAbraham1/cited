@@ -40,6 +40,10 @@ export interface Game {
   mode?: GameMode
   /** Solo only: the player's best score on this topic before this run. */
   bestBefore?: number
+  /** Failed games: up to 3 Wikipedia articles to try instead ("Did you mean…?"). */
+  suggestions?: string[]
+  /** Failed games: the replacement game's code, so the room can follow the host. */
+  nextCode?: string
 }
 
 export interface Player {
@@ -477,4 +481,27 @@ export function scoreWithCards(answerScore: number, plays: Pick<CardPlay, 'actor
     if (p.targetId === userId) s += p.targetDelta ?? 0
   }
   return Math.max(0, s)
+}
+
+// ---------------------------------------------------------------------------
+// "Did you mean…?" after a failed topic
+// ---------------------------------------------------------------------------
+
+/**
+ * Up to 3 alternative topics from the articles the search already found:
+ * usable ones first (in search order), never the topic itself, never a
+ * disambiguation or list page, never an article already found too thin.
+ */
+export function pickSuggestions(candidates: string[], topic: string, thin: string[] = []): string[] {
+  const norm = (t: string) => t.trim().toLowerCase()
+  const skip = new Set([norm(topic), ...thin.map(norm)])
+  const out: string[] = []
+  for (const t of candidates) {
+    if (out.length >= 3) break
+    if (!t || /\(disambiguation\)$/i.test(t) || /^List of /i.test(t) || skip.has(norm(t))) continue
+    if (t.length > LIMITS.topicMaxLength) continue
+    skip.add(norm(t))
+    out.push(t)
+  }
+  return out
 }

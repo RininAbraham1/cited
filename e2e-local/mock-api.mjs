@@ -2,6 +2,7 @@
 import http from 'node:http'
 import fs from 'node:fs'
 import { createRequire } from 'node:module'
+const MERCURY = ['Mercury (disambiguation)', 'Mercury stub', 'Mercury (planet)', 'Mercury (element)', 'Freddie Mercury', 'Project Mercury']
 const require = createRequire(new URL('../app/package.json', import.meta.url))
 const { SignJWT, importPKCS8 } = require('jose')
 const KEY = await importPKCS8(fs.readFileSync(new URL('./priv.pem', import.meta.url), 'utf8'), 'ES256')
@@ -64,6 +65,11 @@ http.createServer((req, res) => {
       return send(200, { token })
     }
     if (u.endsWith('/wikipedia/search-pages')) {
+      // An ambiguous topic: rich articles about different things, so the
+      // (octopus-only) fixture questions can't be verified against them.
+      if (/mercury/i.test(JSON.parse(body || '{}').query ?? '')) {
+        return send(200, { success: true, data: MERCURY.map((title) => ({ title, thumbnail: null })) })
+      }
       return send(200, { success: true, data: [
         { title: 'Octopus (disambiguation)', thumbnail: null }, { title: 'Octopus', thumbnail: null },
         { title: 'Cephalopod', thumbnail: null }, { title: 'Stubby article', thumbnail: null },
@@ -72,6 +78,10 @@ http.createServer((req, res) => {
     if (u.endsWith('/wikipedia/get-page-content')) {
       const { title } = JSON.parse(body || '{}')
       if (title === 'Stubby article') return send(200, { success: true, data: { htmlContent: '<p>Too short to use for anything at all really.</p>' } })
+      if (MERCURY.includes(title)) {
+        if (title === 'Mercury stub') return send(200, { success: true, data: { htmlContent: '<p>Short.</p>' } })
+        return send(200, { success: true, data: { htmlContent: `<p>${(title + ' is a well documented subject with a long history. ').repeat(40)}</p>` } })
+      }
       return send(200, { success: true, data: { htmlContent: ARTICLES[title] ?? '' } })
     }
     if (u.endsWith('/anthropic/chat-completion')) {

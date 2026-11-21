@@ -1,7 +1,9 @@
 /** Non-question phases of a game: generating, failed, lobby. */
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { ExternalLink, Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui'
+import { Button, useToast } from '@/components/ui'
+import { callAction } from '@/lib/call-action'
 import { Mascot, MascotSays } from '@/components/Mascot'
 import { type Game } from '@/lib/game-logic'
 
@@ -25,13 +27,65 @@ export function Generating({ stage, topic }: { stage?: string; topic: string }) 
   )
 }
 
-export function Failed({ message }: { message?: string }) {
+export function Failed({ game, gameId, isHost }: { game: Game; gameId: string; isHost: boolean }) {
+  const navigate = useNavigate()
+  const { error } = useToast()
+  const [busy, setBusy] = useState<string | null>(null)
+  const suggestions = game.suggestions ?? []
+
+  // Everyone else in the room follows the host to the replacement game.
+  useEffect(() => {
+    if (game.nextCode) navigate(`/g/${game.nextCode}`)
+  }, [game.nextCode, navigate])
+
+  async function retry(topic: string) {
+    setBusy(topic)
+    const r = await callAction<{ code: string }>('createGame', {
+      topic,
+      questionCount: game.questionCount,
+      secondsPerQuestion: game.secondsPerQuestion,
+      mode: game.mode ?? 'party',
+      replaces: gameId,
+    })
+    setBusy(null)
+    if (!r.success) return error('Couldn’t start that one', r.error)
+    navigate(`/g/${r.data.code}`)
+  }
+
   return (
-    <div className="sheet p-6 md:p-8">
+    <div className="sheet p-6 md:p-8" data-testid="failed">
       <Mascot mood="sad" size={96} className="lg:hidden" />
-      <h2 className="font-display mt-3 text-4xl leading-none">This one didn’t pan out</h2>
-      <p className="mt-2 font-semibold opacity-70">{message || 'Question generation failed.'}</p>
-      <Link to="/play" className="mt-5 inline-block"><Button size="lg" className="font-display bg-hl-1 text-xl font-normal">Try another topic</Button></Link>
+      <h2 className="font-display mt-3 text-4xl leading-none lg:mt-0">This one didn’t pan out</h2>
+      <p className="mt-2 font-semibold opacity-70">{game.error || 'Question generation failed.'}</p>
+
+      {suggestions.length > 0 && (
+        <div className="mt-6" data-testid="suggestions">
+          <p className="font-display text-2xl">Did you mean…?</p>
+          <p className="text-sm font-bold opacity-60">
+            {isHost ? 'Pick one and we’ll start over on that article.' : 'The host can pick one of these. You’ll follow them automatically.'}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {suggestions.map((t, i) => (
+              <button
+                key={t}
+                type="button"
+                disabled={!isHost || busy != null}
+                onClick={() => retry(t)}
+                data-testid="suggestion"
+                className={`pop bg-hl-${i % 4} rounded-xl px-4 py-2 text-base font-black text-ink disabled:cursor-default disabled:opacity-60`}
+              >
+                {busy === t ? 'Starting…' : t}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <Link to="/play" className="mt-6 inline-block">
+        <Button size="lg" variant={suggestions.length ? 'outline' : 'default'} className={`font-display text-xl font-normal ${suggestions.length ? '' : 'bg-hl-1'}`}>
+          {suggestions.length ? 'Or type another topic' : 'Try another topic'}
+        </Button>
+      </Link>
     </div>
   )
 }

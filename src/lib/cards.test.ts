@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  CARDS, cardPool, dealHand, oracleStrikes, redactedPenalty, scoreWithCards, stealOutcome, streakAt, streakMultiplier,
+  CARDS, cardPool, dealHand, pickSuggestions, oracleStrikes, redactedPenalty, scoreWithCards, stealOutcome, streakAt, streakMultiplier,
 } from './game-logic'
 
 const seq = (...xs: number[]) => { let i = 0; return () => xs[i++ % xs.length] }
@@ -91,5 +91,22 @@ describe('streaks', () => {
     expect(streakMultiplier(1)).toBe(1)
     expect(streakMultiplier(3)).toBeCloseTo(1.2)
     expect(streakMultiplier(20)).toBeCloseTo(1.5)
+  })
+})
+
+describe('Did you mean…? suggestions', () => {
+  it('offers up to 3 usable articles, skipping the topic, disambiguation, lists and thin pages', () => {
+    const got = pickSuggestions(
+      ['Mercury', 'Mercury (disambiguation)', 'Mercury (planet)', 'List of Mercury things', 'Tiny stub', 'Mercury (element)', 'Freddie Mercury', 'Project Mercury'],
+      'mercury',
+      ['Tiny stub'],
+    )
+    expect(got).toEqual(['Mercury (planet)', 'Mercury (element)', 'Freddie Mercury'])
+  })
+  it('returns nothing when there is nothing better to try', () => {
+    expect(pickSuggestions(['Octopus', 'Octopus (disambiguation)'], 'Octopus')).toEqual([])
+  })
+  it('never repeats an article', () => {
+    expect(pickSuggestions(['A b', 'a B', 'C d'], 'x')).toEqual(['A b', 'C d'])
   })
 })

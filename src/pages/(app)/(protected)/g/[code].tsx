@@ -142,7 +142,7 @@ function Room({ gameId, game }: { gameId: string; game: Game }) {
             <div className="mb-5"><JesterPrompt compact gameId={gameId} index={pendingJester.data.index} players={players} meId={userId} /></div>
           )}
           {game.status === 'generating' && <Generating stage={game.stage} topic={game.topic} />}
-          {game.status === 'failed' && <Failed message={game.error} />}
+          {game.status === 'failed' && <Failed game={game} gameId={gameId} isHost={isHost} />}
           {game.status === 'lobby' && (solo ? <Generating stage="Questions ready. Here we go!" topic={game.topic} /> : <Lobby game={game} isHost={isHost} gameId={gameId} playerCount={players.length} />)}
           {(game.status === 'question' || game.status === 'reveal') && current && (
             <QuestionCard
